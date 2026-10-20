@@ -1,7 +1,7 @@
-# 星区指挥终端 / ORBITAL COMMAND
+﻿# 星区指挥终端 / ORBITAL COMMAND `0.1.0a0`
 
 等距视角的星球建造 + 太空计划 + 星际物流与舰队对抗。**Rust 仿真内核 + TypeScript 表现层**，
-在浏览器里单机运行。
+在浏览器里单机运行；同时提供单文件 Windows 启动器（`dist-exe/ORBITAL-COMMAND-0.1.0a0.exe`）。
 
 ```
 建造殖民地 → 通电与采掘 → 造火箭送上轨道 → 开通星际航线 → 抵御周期来袭的舰队 → 再投资
@@ -17,6 +17,27 @@
 
 ## 快速开始
 
+**方式 A：直接双击 `exe`（推荐给只想玩的人）**
+
+```text
+dist-exe\ORBITAL-COMMAND-0.1.0a0.exe
+```
+
+单文件、0.42 MiB，前端资源（HTML / JS / CSS / wasm）全部内嵌在二进制里。双击后它会在
+`127.0.0.1` 上选一个空闲端口启动本地服务，并用系统默认浏览器打开游戏；关闭控制台窗口即退出。
+**不需要** Node.js、不需要 WebView2、不需要安装程序。
+
+命令行选项：`--port 8137` 指定端口 · `--no-open` 只起服务不开浏览器 · `--help`。
+
+重新打包：
+
+```bash
+pnpm install
+pnpm run package        # wasm → vite build → cargo build --release → dist-exe/
+```
+
+**方式 B：从源码跑开发服务器**
+
 ```bash
 pnpm install
 pnpm run wasm        # cargo build --target wasm32-unknown-unknown → web/public/oc.wasm
@@ -30,7 +51,7 @@ pnpm run dev         # http://127.0.0.1:5178
 
 ```bash
 pnpm run build                  # wasm + tsc --noEmit + vite build → dist/
-node scripts/ci.mjs             # 全套 CI：fmt / clippy -D warnings / test / 确定性 / wasm / tsc / eslint / vitest / build / 守卫脚本
+node scripts/ci.mjs             # 全套 CI：fmt / clippy -D warnings / test / 确定性 / wasm / tsc / eslint / vitest / build / 守卫脚本 / exe 打包
 node scripts/ci.mjs --web       # 只跑前端
 node scripts/screenshot.mjs     # 无头截图到 .tmp/shot.png（并报告 console 报错）
 ```
@@ -82,7 +103,11 @@ crates/content  数据表                       web/src/ui      DOM HUD
 crates/protocol Command / Snapshot / 版本     web/src/net     Transport + 二进制编解码
 crates/sim      5 个系统，确定性，无 I/O       web/src/app     单向数据流编排
 crates/bridge-wasm  12 个 extern "C" 函数     web/src/generated  ts-rs + codegen 产物（禁止手写）
+crates/launcher  单文件 exe：内嵌 dist + 本地 HTTP + 开浏览器  ← 纯 std，零依赖
 ```
+
+> 版本：Cargo/npm 用 semver `0.1.0-a0`，展示与产物文件名为 `0.1.0a0`
+> （`oc_protocol::PRODUCT_VERSION`，同时出现在启动器横幅与 `?debug=1` 的调试层里）。
 
 **单向数据流**：`输入 → Command[] → Transport.send → sim.step() → Snapshot → 渲染 / HUD`。
 渲染与 HUD 只读快照，不持有任何规则；放置合法性由仿真的 `oc_query_place` 回答。

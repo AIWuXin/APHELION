@@ -14,6 +14,7 @@ crates/
   sim/         确定性仿真：World + systems/*（无 I/O、无 DOM、无时钟）   ← iso, content, protocol
   sim-cli/     headless 跑 3000 tick 并打印哈希（CI 的确定性守卫）        ← sim
   bridge-wasm/ 薄桥：12 个 extern "C" 函数，crate-type = cdylib          ← sim, protocol
+  launcher/   单文件 exe：build.rs 内嵌 dist/ + 最小 HTTP 服务 + 开浏览器 ← protocol
 web/src/
   style/       tokens.ts（唯一色板/字号/几何真源）+ inject-theme.ts
   net/         Transport 契约、postcard reader/writer、decode、encode
@@ -138,6 +139,7 @@ export class WebSocketTransport implements Transport {
 ## 7. 常用命令
 
 ```powershell
+node scripts/package-exe.mjs         # wasm + vite build + cargo build --release → dist-exe/ORBITAL-COMMAND-0.1.0a0.exe
 node scripts/build-wasm.mjs          # cargo → web/public/oc.wasm（唯一 wasm 构建步骤）
 npx vite build                       # 前端产物 → dist/
 npx vite --port 5178                 # 本地开发

@@ -1,0 +1,17 @@
+[package]
+name = "oc-launcher"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "orbital-command"
+path = "src/main.rs"
+
+[dependencies]
+oc-protocol = { workspace = true }
+
+# No other dependencies on purpose: the launcher is a std-only static file
+# server that opens the user's default browser, so the release exe needs no
+# WebView2, no Node.js and no runtime DLLs beyond the CRT.
+[build-dependencies]

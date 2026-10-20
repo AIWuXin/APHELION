@@ -31,7 +31,7 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
 name = "oc-bridge-wasm"
-version = "0.1.0"
+version = "0.1.0-a0"
 dependencies = [
  "oc-protocol",
  "oc-sim",
@@ -39,7 +39,7 @@ dependencies = [
 
 [[package]]
 name = "oc-content"
-version = "0.1.0"
+version = "0.1.0-a0"
 dependencies = [
  "oc-protocol",
  "postcard",
@@ -48,11 +48,18 @@ dependencies = [
 
 [[package]]
 name = "oc-iso"
-version = "0.1.0"
+version = "0.1.0-a0"
+
+[[package]]
+name = "oc-launcher"
+version = "0.1.0-a0"
+dependencies = [
+ "oc-protocol",
+]
 
 [[package]]
 name = "oc-protocol"
-version = "0.1.0"
+version = "0.1.0-a0"
 dependencies = [
  "postcard",
  "serde",
@@ -61,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "oc-sim"
-version = "0.1.0"
+version = "0.1.0-a0"
 dependencies = [
  "oc-content",
  "oc-iso",
@@ -71,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "oc-sim-cli"
-version = "0.1.0"
+version = "0.1.0-a0"
 dependencies = [
  "oc-content",
  "oc-protocol",

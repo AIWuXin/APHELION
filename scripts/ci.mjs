@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
  * One command CI. Everything the brief asks for, in the order that fails fastest.
  *
@@ -58,6 +58,7 @@ if (!onlyRust) {
   run('web: vite build', 'npx', ['vite', 'build']);
   run('web: file length guard', 'node', ['scripts/check-file-length.mjs']);
   run('web: no bitmap / emoji assets', 'node', ['scripts/check-assets.mjs']);
+  run('package: single-file exe', 'node', ['scripts/package-exe.mjs']);
 }
 
 summarise();

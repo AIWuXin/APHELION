@@ -1,13 +1,14 @@
 {
   "name": "orbital-command",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-a0",
   "type": "module",
-  "description": "ORBITAL COMMAND — isometric colony builder with a Rust simulation core",
+  "description": "ORBITAL COMMAND 0.1.0a0 — isometric colony builder with a Rust simulation core",
   "scripts": {
     "wasm": "node scripts/build-wasm.mjs",
     "dev": "npm run wasm && vite",
     "build": "npm run wasm && tsc --noEmit && vite build",
+    "package": "node scripts/package-exe.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -19,7 +20,7 @@
     "@types/node": "^26.6.5",
     "eslint": "^10.13.0",
     "playwright-core": "^1.64.1",
-    "typescript": "^5.9.3",
+    "typescript": "5.9.3",
     "typescript-eslint": "^8.71.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"

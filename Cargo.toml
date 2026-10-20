@@ -7,10 +7,11 @@ members = [
   "crates/sim",
   "crates/sim-cli",
   "crates/bridge-wasm",
+  "crates/launcher",
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-a0"
 edition = "2021"
 rust-version = "1.80"
 license = "MIT"

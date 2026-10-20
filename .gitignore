@@ -5,3 +5,4 @@ web/public/oc.wasm
 .tmp/
 *.log
 *.png.bak
+dist-exe/

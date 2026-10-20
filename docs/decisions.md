@@ -186,6 +186,48 @@ RTS 语境里通常仍可平移；44×44 的地图在 1920 宽下只能看到约
 
 ---
 
+## D-09 · 打包成单文件 exe：自建 std-only 启动器，而不是 Tauri / Electron
+
+**改了什么**：新增 `crates/launcher`（bin 名 `orbital-command`，**零第三方依赖**）：
+`build.rs` 把 `dist/` 里每个文件 `include_bytes!` 进二进制，运行时用 `TcpListener` 起一个
+最小 HTTP/1.1 服务（含 `application/wasm` MIME、`HEAD`、405/404），再用
+`cmd /c start "" <url>`（带 `CREATE_NO_WINDOW`）打开系统默认浏览器；Windows 下把控制台切到
+UTF-8 代码页并设置窗口标题。`scripts/package-exe.mjs` 一条命令产出
+`dist-exe/ORBITAL-COMMAND-0.1.0a0.exe`（0.42 MiB）。
+
+**为什么**：需求是「浏览器里运行的单机 demo」，同时用户想要「双击就能开始」。三个候选：
+
+| 方案 | 结论 |
+|---|---|
+| Tauri / Electron | 能给出原生窗口，但引入 WebView2 运行时依赖（Tauri）或 100+ MB 运行时（Electron），首编依赖数量与失败面都远超项目本体；而且它们都是外部 UI 壳层，与「零外部框架」的项目气质相反 |
+| 只给 `dist/` + 一句 `npx serve` | 需要 Node.js 与命令行，不算「直接启动」 |
+| **自建 std-only 启动器** | 单文件、无运行时依赖、构建只需 `cargo build`，且**跑的就是同一份 `dist/`**——浏览器里验证过的渲染路径没有被替换掉 |
+
+**影响**：正向——一个 0.42 MiB 的 exe 就是完整游戏；`dist/` 与 exe 内嵌的是同一批字节，
+不存在「打包后才出现的问题」；CI 只需多一条 `cargo clippy`（已包含在既有 workspace 全量检查里）
+和一次 release 构建。负向——它是「启动器 + 默认浏览器」，不是自带窗口的桌面应用；
+若将来一定要原生窗口，只需替换 `crates/launcher`（`dist/` 与协议不变），这也是把它单独做成
+一个 crate 而不是塞进 `bridge-wasm` 的原因。另一处代价：`dist/` 不在时 `build.rs` 会退化成
+空资源表（保证干净 checkout 也能 `cargo test`/`clippy`），此时 exe 会显示「请先打包」的页面。
+
+---
+
+## N-05 · 版本号：semver `0.1.0-a0` / 展示 `0.1.0a0`
+
+**改了什么**：`Cargo.toml` 与 `package.json` 用合法的 semver 预发布形式 `0.1.0-a0`；
+对外展示统一用 `0.1.0a0`（`oc_protocol::PRODUCT_VERSION`、exe 文件名、控制台横幅、
+窗口标题、`web/index.html` 标题与启动遮罩、`?debug=1` 调试层的 banner）。
+
+**为什么**：Cargo 与 npm 都要求合法 semver，`0.1.0a0` 不是合法 semver（patch 后只能跟
+`-prerelease` / `+build`），而用户希望看到的字面量是 `0.1.0a0`。两边各用各的形式，
+并在 README 里写明映射关系，避免有人把 `0.1.0a0` 写进 `Cargo.toml` 后编译失败。
+
+**影响**：正向——工具链开心，界面/产物名符合预期；`package-exe.mjs` 从 Cargo 版本自动推导
+`0.1.0a0`，不需要手工同步两处。负向——两个写法并存，需要在这一条记录里解释；若以后发正式版
+（`0.2.0`）则两者自动一致，这条偏离自然消失。
+
+---
+
 ## D-08 · 截图与验收工具链
 
 **改了什么**：`scripts/screenshot.mjs` 用**本机已安装的 Chrome**（`playwright-core` 的

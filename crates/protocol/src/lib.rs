@@ -1,4 +1,4 @@
-﻿//! Wire protocol shared by the Rust simulation and the TypeScript client.
+//! Wire protocol shared by the Rust simulation and the TypeScript client.
 //!
 //! This crate is the single source of truth for everything that crosses the
 //! bridge. TypeScript types under `web/src/generated/` are produced by `ts-rs`
@@ -33,7 +33,7 @@ pub use snapshot::{
     STATUS_DEFEAT, STATUS_RUNNING, STATUS_VICTORY, UNIT_STATE_ATTACK, UNIT_STATE_DOCKED,
     UNIT_STATE_DYING, UNIT_STATE_IDLE, UNIT_STATE_MOVE,
 };
-pub use version::{banner, PROTOCOL_VERSION};
+pub use version::{banner, PRODUCT_VERSION, PROTOCOL_VERSION};
 pub use world::{BootBlob, MapView};
 
 /// Entity identifier. Monotonic within a session, never reused.

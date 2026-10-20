@@ -1,4 +1,4 @@
-[workspace]
+﻿[workspace]
 resolver = "2"
 members = [
   "crates/iso",
@@ -13,7 +13,8 @@ members = [
 [workspace.package]
 version = "0.1.0-a0"
 edition = "2021"
-rust-version = "1.80"
+# `u32::is_multiple_of` (used by the economy/event cadence) landed in 1.87.
+rust-version = "1.87"
 license = "MIT"
 
 [workspace.dependencies]

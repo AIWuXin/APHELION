@@ -93,7 +93,7 @@ pub fn render_ts() -> String {
         ("DECOR_KEYS", decor_keys()),
     ] {
         let ty = const_name.trim_end_matches("_KEYS");
-        let ty = format!("{}{}", &ty[..1], &ty[1..].to_ascii_lowercase());
+        let ty = format!("{}{}", &ty[..1], ty[1..].to_ascii_lowercase());
         let ty = ty
             .split('_')
             .map(|p| {

@@ -1,5 +1,7 @@
 ﻿# APHELION · 远日点指挥终端 `0.1.0a0`
 
+[![ci](https://github.com/AIWuXin/APHELION/actions/workflows/ci.yml/badge.svg)](https://github.com/AIWuXin/APHELION/actions/workflows/ci.yml)
+
 > **APHELION** —— 轨道上离恒星最远的那一点。把它当作一座被遗弃在矿脉行星上的指挥终端：
 > 资源、运力、补给他们都在最远端，你只有自己的判断。
 

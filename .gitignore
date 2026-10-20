@@ -1,7 +1,6 @@
 ﻿node_modules/
 dist/
 target/
-web/public/oc.wasm
 .tmp/
 *.log
 *.png.bak

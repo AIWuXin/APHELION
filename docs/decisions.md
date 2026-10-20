@@ -311,3 +311,21 @@ README、exe 文件名、文档标题全部一致）。负向——仓库里同�
 **影响**：正向——每轮改完都能在几十秒内看到真实画面并知道有没有 JS 报错；
 截图同时作为「不变量逐条对照」的证据。负面——依赖本机 Chrome 路径，CI 机器需装 Chrome；
 `playwright-core` 已加入 devDependencies。
+
+## N-09 · 把 wasm 与生成类型入库，让 CI 拆成三个不互相牵连的 job
+
+**改了什么**：`web/public/oc.wasm`（85 KiB）和 `web/src/generated/*.ts` 提交进仓库
+（后者本来就已经提交，只是额度不清）。CI 从 2 个 job 改成 3 个：`rust`（内核门禁）、
+`web`（纯 Node 表现层门禁）、`package`（Windows 上产出 exe）。rust job 里新增一条
+`git diff --exit-code -- web/src/generated web/tests/fixtures`：只要有人改了 Rust 协议
+却忘了重新生成，CI 直接失败并提示要提交哪些文件。
+
+**为什么**：第一次跑 CI 时 web job 失败在 `curl https://sh.rustup.rs` 的网络抖动上——
+它其实根本不需要 Rust，只是要去拿一个已构建好的 wasm。把这两个产物入库后：
+web job 不再安装 Rust（更快、更稳、失败原因更单向）；rust job 仍然验证「源码能构建出 wasm」；
+exe 必须在 Windows 上构建（否则拿到的是 Linux 二进制），所以单独一个 job。
+
+**影响**：正向——CI 失败时能立刻定位到是哪一层的问题；web job 从「装 Rust + 装 wasm target +
+构建」缩到纯 pnpm。负向——仓库里多了 85 KiB 二进制；且**改动 sim/protocol 后必须重建产物并
+提交**，否则 web job 会用旧内核跑测试（这条写在 `architecture.md §8`，并有 rust job 的
+生成物漂移检查兜住协议侧）。对 demo 仓库这是合理的取舍：可复现与 CI 稳定 > 仓库绝对纯源码。

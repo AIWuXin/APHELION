@@ -1,4 +1,4 @@
-# 架构 / Architecture
+﻿# 架构 / Architecture
 
 面向新人的操作手册：**10 分钟内知道怎么加一个建筑、怎么换 Transport、依赖为什么这样切。**
 
@@ -147,3 +147,17 @@ node scripts/screenshot.mjs --debug  # 无头截图 + 控制台报错（1920×10
 node scripts/ci.mjs                  # 全套 CI（Rust + 前端 + 守卫脚本）
 node scripts/ci.mjs --web            # 只跑前端
 ```
+
+## 8. 入库的构建产物（CI 结构的前提）
+
+仓库里有**两样**本来可以算构建产物的文件被刻意提交了：
+
+| 文件 | 为什么入库 |
+|---|---|
+| `web/src/generated/*.ts` | ts-rs 从 Rust 结构生成的协议类型。入库后前端不需要 Rust 就能 typecheck；`cargo test` 会重新生成，CI 的 rust job 用 `git diff --exit-code` 检查它是否与 Rust 声明同步。 |
+| `web/public/oc.wasm` | 85 KiB 的仿真内核。入库后 web CI job 变成纯 Node，不必在 Ubuntu 上装 Rust（那一步曾是 CI 唯一的抖动源）。 |
+
+所以 CI 是三个职责清晰的 job：`rust`（内核门禁）、`web`（纯 Node 表现层门禁）、
+`package`（Windows 上产出单文件 exe）。改动 `crates/sim` 或 `crates/protocol` 之后，
+本地必须跑一次 `pnpm run wasm` 与 `cargo test` 并提交上面两样产物，否则 web job 用的
+还是旧内核。

@@ -10,3 +10,4 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 oc-sim = { workspace = true }
 oc-protocol = { workspace = true }
+oc-content = { workspace = true }

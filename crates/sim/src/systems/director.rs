@@ -113,6 +113,14 @@ fn spawn_wave(world: &mut World) {
     }
 }
 
+/// Hard cap on simultaneous orbital warships.
+///
+/// Warships sit on the orbital layer, out of reach of every player weapon, so
+/// they never die. The old unbounded `wave / 2 + phase` target therefore grew
+/// the snapshot (and the radar blip count) forever. Once the cap is reached the
+/// director stops spawning; the existing hulls stay as background contacts.
+const MAX_WARSHIPS: usize = 8;
+
 fn update_orbital(world: &mut World, dt_ms: u32) {
     // Orbital escorts circle the planet; they exist to be seen on the radar.
     let hostile_ships = world
@@ -120,8 +128,10 @@ fn update_orbital(world: &mut World, dt_ms: u32) {
         .iter()
         .filter(|s| s.owner == 1 && s.kind == units::U_WARSHIP)
         .count();
-    let want = usize::from(world.wave / 2) + usize::from(world.policy.ai_phase.min(2));
+    let want =
+        (usize::from(world.wave / 2) + usize::from(world.policy.ai_phase.min(2))).min(MAX_WARSHIPS);
     if hostile_ships < want {
+        let def = World::unit_def(units::U_WARSHIP);
         let id = world.alloc_id();
         let angle = world.rng.director.next_u32() % 360;
         world.ships.push(Ship {
@@ -130,8 +140,8 @@ fn update_orbital(world: &mut World, dt_ms: u32) {
             x: FP * 22,
             y: FP * 22,
             z: 3200,
-            hp: 420,
-            hp_max: 420,
+            hp: def.hp,
+            hp_max: def.hp,
             state: UNIT_STATE_MOVE,
             phase: angle as u16,
             owner: 1,

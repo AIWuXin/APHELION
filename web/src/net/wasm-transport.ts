@@ -62,6 +62,8 @@ export class WasmTransport implements Transport {
   private module: OcExports | null = null;
   private handlers: TransportHandlers | null = null;
   private timer: number | null = null;
+  /** Set once a loop failure has been reported, so `onError` fires only once. */
+  private failed = false;
   private seed: number;
   private readonly url: string;
   private readonly hz: number;
@@ -77,6 +79,7 @@ export class WasmTransport implements Transport {
 
   public async start(handlers: TransportHandlers): Promise<void> {
     this.handlers = handlers;
+    this.failed = false;
     try {
       const response = await fetch(this.url);
       if (!response.ok) throw new Error(`oc.wasm: HTTP ${response.status}`);
@@ -149,21 +152,35 @@ export class WasmTransport implements Transport {
     this.timer = window.setInterval(() => {
       const exports = this.module;
       if (!exports) return;
-      const t0 = performance.now();
-      exports.oc_step();
-      this.stepMsAcc += performance.now() - t0;
-      this.stepSamples += 1;
-      this.pushSnapshot();
-      if (this.stepSamples >= this.hz) {
-        this.lastStats = {
-          stepMs: this.stepMsAcc / this.stepSamples,
-          snapshotBytes: exports.oc_snapshot_len(),
-          banner: this.readBanner(exports),
-        };
-        this.stepMsAcc = 0;
-        this.stepSamples = 0;
+      try {
+        const t0 = performance.now();
+        exports.oc_step();
+        this.stepMsAcc += performance.now() - t0;
+        this.stepSamples += 1;
+        this.pushSnapshot();
+        if (this.stepSamples >= this.hz) {
+          this.lastStats = {
+            stepMs: this.stepMsAcc / this.stepSamples,
+            snapshotBytes: exports.oc_snapshot_len(),
+            banner: this.readBanner(exports),
+          };
+          this.stepMsAcc = 0;
+          this.stepSamples = 0;
+        }
+      } catch (error) {
+        // A broken tick must tear the loop down, not throw every period forever.
+        this.fail(error);
       }
     }, period);
+  }
+
+  /** Stop the loop and report a fatal tick failure exactly once. */
+  private fail(error: unknown): void {
+    if (this.failed) return;
+    this.failed = true;
+    const handlers = this.handlers;
+    this.close();
+    handlers?.onError(error instanceof Error ? error.message : String(error));
   }
 
   private readBanner(exports: OcExports): string {

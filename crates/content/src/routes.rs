@@ -31,7 +31,10 @@ pub const R_RING: u8 = 2;
 pub const R_COUNT: u8 = 3;
 
 /// The table.
-pub static ROUTES: &[RouteRow] = &[
+///
+/// `const` (not `static`) so `oc-sim` can size its runtime lane array from
+/// [`ROUTES.len()`] in a compile-time constant expression.
+pub const ROUTES: &[RouteRow] = &[
     RouteRow {
         key: "aphelion-belt",
         zh: "远日点矿带",
@@ -63,6 +66,11 @@ pub static ROUTES: &[RouteRow] = &[
         flavour: "船坞的排期表上还留着我们的位置。",
     },
 ];
+
+// `R_COUNT` is the wire-facing count and `oc-sim` sizes its lane array from
+// `ROUTES.len()`; pin the two together so appending a route fails the build
+// until both sides agree.
+const _: () = assert!(ROUTES.len() == R_COUNT as usize);
 
 /// Convert a row to the wire definition.
 #[must_use]

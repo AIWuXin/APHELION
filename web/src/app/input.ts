@@ -86,6 +86,9 @@ export class Input {
     });
 
     on('pointerup', (ev) => {
+      // Ignore releases that did not start with a tracked left-button press;
+      // middle/right buttons never set `down`, so they must not pick.
+      if (!this.down) return;
       if (ev.button === 2) return;
       const rect = this.target.getBoundingClientRect();
       if (!this.dragged) {

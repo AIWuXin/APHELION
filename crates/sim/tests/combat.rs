@@ -324,3 +324,23 @@ fn radar_publishes_the_wave_eta_early() {
         "radar should announce the incoming wave early"
     );
 }
+
+#[test]
+fn orbital_warships_stop_at_the_hard_cap() {
+    let mut world = new_world();
+    world.wave = 100; // the old formula would ask for dozens of hulls
+    for _ in 0..40 {
+        world.step();
+    }
+    let hp = World::unit_def(units::U_WARSHIP).hp;
+    let warships: Vec<_> = world
+        .ships
+        .iter()
+        .filter(|s| s.owner == 1 && s.kind == units::U_WARSHIP)
+        .collect();
+    assert_eq!(warships.len(), 8, "orbital contacts must stay bounded");
+    assert!(
+        warships.iter().all(|s| s.hp == hp && s.hp_max == hp),
+        "warship hit points must come from the unit table"
+    );
+}

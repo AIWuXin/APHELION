@@ -80,8 +80,12 @@ pub struct World {
     /// Orbital lift capacity granted by rockets (relay masts add more, see
     /// [`World::orbital_capacity`]).
     pub capacity: u16,
-    /// Three trade lanes.
-    pub routes: [RouteState; 3],
+    /// Runtime state for every row of [`oc_content::routes::ROUTES`].
+    ///
+    /// The length comes from the content table at compile time, so appending a
+    /// route cannot leave this array short: indexing by table index in
+    /// `commands` and `logistics` stays in bounds by construction.
+    pub routes: [RouteState; oc_content::routes::ROUTES.len()],
     /// Researched techs, bit per tech index.
     pub techs: u32,
     /// Current wave number.
@@ -145,7 +149,7 @@ impl World {
             events: Vec::new(),
             next_id: 1,
             capacity: 0,
-            routes: [RouteState::default(); 3],
+            routes: [RouteState::default(); oc_content::routes::ROUTES.len()],
             techs: 0,
             wave: 0,
             fleet_eta_ms: balance::FIRST_WAVE_S * 1000,

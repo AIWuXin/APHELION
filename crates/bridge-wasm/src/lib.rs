@@ -22,14 +22,20 @@ thread_local! {
 
 /// Allocate `len` bytes in wasm linear memory.
 ///
+/// Returns null for zero-length requests and for sizes that cannot form a valid
+/// layout (the caller controls `len`, so an unchecked layout would be UB once it
+/// exceeds `isize::MAX`).
+///
 /// # Safety
-/// The caller must free the pointer with [`oc_free`] using the same length.
+/// A non-null result must be freed with [`oc_free`] using the same length.
 #[no_mangle]
 pub unsafe extern "C" fn oc_alloc(len: usize) -> *mut u8 {
     if len == 0 {
         return core::ptr::null_mut();
     }
-    let layout = Layout::from_size_align_unchecked(len, 8);
+    let Ok(layout) = Layout::from_size_align(len, 8) else {
+        return core::ptr::null_mut();
+    };
     alloc(layout)
 }
 
@@ -42,7 +48,9 @@ pub unsafe extern "C" fn oc_free(ptr: *mut u8, len: usize) {
     if ptr.is_null() || len == 0 {
         return;
     }
-    let layout = Layout::from_size_align_unchecked(len, 8);
+    let Ok(layout) = Layout::from_size_align(len, 8) else {
+        return;
+    };
     dealloc(ptr, layout);
 }
 
@@ -133,6 +141,12 @@ pub extern "C" fn oc_boot_len() -> usize {
 /// the high half).
 #[no_mangle]
 pub extern "C" fn oc_query_place(kind: u32, tx: u32, ty: u32) -> u32 {
+    // `Command::Place` silently rejects `kind >= B_COUNT`; reject it here too,
+    // otherwise `kind as u8` would truncate (e.g. 256 -> 0) and the ghost
+    // preview would answer for a different building than the one it would build.
+    if kind >= u32::from(oc_content::buildings::B_COUNT) {
+        return 0;
+    }
     WORLD.with(|w| {
         let guard = w.borrow();
         let Some(world) = guard.as_ref() else {

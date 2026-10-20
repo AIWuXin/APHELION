@@ -53,6 +53,8 @@ export class App {
   /** True once the camera has been framed on the colony. */
   private framed = false;
   private raf = 0;
+  /** True once a fatal transport error has torn the app down. */
+  private fatalOccurred = false;
   private readonly debug: boolean;
   private readonly unbindKeys: () => void;
   /** Errors already reported, so a per-frame throw does not flood the console. */
@@ -116,6 +118,9 @@ export class App {
       },
       onError: (message) => this.fatal(message),
     });
+    // `onError` can fire synchronously while `start` is still awaited (e.g. a
+    // corrupt boot blob); do not leave a render loop running after `fatal`.
+    if (this.fatalOccurred) return;
     this.lastFrame = performance.now();
     this.raf = requestAnimationFrame((t) => this.loop(t));
   }
@@ -327,6 +332,7 @@ export class App {
   }
 
   private fatal(message: string): void {
+    this.fatalOccurred = true;
     const veil = document.getElementById('boot-veil');
     if (veil) {
       veil.classList.remove('gone');

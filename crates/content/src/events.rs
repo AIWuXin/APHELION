@@ -67,7 +67,7 @@ pub static EVENTS: &[EventRow] = &[
     },
     EventRow {
         key: "damage",
-        text_zh: "%s 正在承受火力",
+        text_zh: "{a} 正在承受火力",
         speaker: "STRUCTURAL",
         tone: TONE_WARN,
     },

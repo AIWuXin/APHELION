@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Attract mode / demo script.
  *
  * `?demo=1` runs a fixed opening so the title screen and the screenshot harness

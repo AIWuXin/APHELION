@@ -1,4 +1,4 @@
-﻿//! APHELION — single-file desktop launcher.
+//! APHELION — single-file desktop launcher.
 //!
 //! Serves the embedded web client on `127.0.0.1` and opens the user's default
 //! browser. Rationale (see `docs/decisions.md` D-09): the brief requires the

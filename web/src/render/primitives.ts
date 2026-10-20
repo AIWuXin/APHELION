@@ -1,4 +1,4 @@
-﻿/**
+/**
  * The drawing vocabulary of the project.
  *
  * Everything volumetric in the world is composed from these four solids --

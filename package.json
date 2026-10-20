@@ -4,6 +4,10 @@
   "version": "0.1.0-a0",
   "type": "module",
   "description": "APHELION 0.1.0a0 — isometric colony builder with a Rust simulation core",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "wasm": "node scripts/build-wasm.mjs",
     "dev": "npm run wasm && vite",

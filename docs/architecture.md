@@ -1,4 +1,4 @@
-﻿# 架构 / Architecture
+# 架构 / Architecture
 
 面向新人的操作手册：**10 分钟内知道怎么加一个建筑、怎么换 Transport、依赖为什么这样切。**
 

@@ -1,4 +1,4 @@
-﻿//! The static content catalogue shipped to the client once per session.
+//! The static content catalogue shipped to the client once per session.
 //!
 //! Everything the HUD needs to render a build card (names, costs, categories)
 //! comes from here, so adding a building touches **two** places only: the Rust

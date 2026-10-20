@@ -1,4 +1,4 @@
-﻿//! Cheap synchronous queries.
+//! Cheap synchronous queries.
 //!
 //! The renderer needs to know whether a ghost placement is legal *before* the
 //! command is sent. Rather than duplicating placement rules in TypeScript, the

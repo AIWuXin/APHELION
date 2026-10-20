@@ -1,4 +1,4 @@
-﻿# APHELION · 远日点指挥终端 `0.1.0a0`
+# APHELION · 远日点指挥终端 `0.1.0a0`
 
 [![ci](https://github.com/AIWuXin/APHELION/actions/workflows/ci.yml/badge.svg)](https://github.com/AIWuXin/APHELION/actions/workflows/ci.yml)
 

@@ -1,4 +1,4 @@
-﻿//! Emits `web/tests/fixtures/boot.bin`: a real catalogue plus a synthetic
+//! Emits `web/tests/fixtures/boot.bin`: a real catalogue plus a synthetic
 //! planet, so the TypeScript boot decoder can be checked against Rust.
 
 use oc_protocol::{BootBlob, MapView, PROTOCOL_VERSION};

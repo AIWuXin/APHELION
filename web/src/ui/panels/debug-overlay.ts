@@ -1,4 +1,4 @@
-﻿/**
+/**
  * `?debug=1` overlay.
  *
  * Ten-pixel monospace block, bottom-left, pointer-transparent: frame rate, sim

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Pointer and keyboard input.
  *
  * Input produces **intent events only**; it never mutates the world. The app

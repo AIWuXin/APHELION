@@ -1,4 +1,4 @@
-﻿//! Immutable world description handed to the client once, at boot.
+//! Immutable world description handed to the client once, at boot.
 //!
 //! The planet is generated deterministically from the seed inside the
 //! simulation; the client receives the resulting tile arrays and only ever

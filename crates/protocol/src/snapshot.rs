@@ -1,4 +1,4 @@
-﻿//! Read-only world state handed to the presentation layer once per tick.
+//! Read-only world state handed to the presentation layer once per tick.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

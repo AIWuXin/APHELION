@@ -1,4 +1,4 @@
-﻿/* APHELION — rail panel internals, part 1.
+/* APHELION — rail panel internals, part 1.
    Scan / directives / lanes / fabricator. Rows share 1px border grids instead of
    floating cards: the rail reads as one continuous instrument. Part 2 (科技树 /
    单位情报 / 事件日志) lives in intel.css. */

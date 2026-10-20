@@ -50,15 +50,16 @@ export function project(x: number, y: number, z: number): Point {
   };
 }
 
-/** Project and apply the camera transform, in the renderer's zoomed space. */
+/**
+ * Project and translate into the renderer's **drawing space**.
+ *
+ * Zoom is deliberately *not* applied here: `Renderer.draw` sets
+ * `setTransform(dpr·zoom, …)` once, so the whole frame -- baked terrain, solids,
+ * effects, overlays -- is magnified in one place. Multiplying here as well would
+ * apply the magnification twice and make buildings drift off their tiles
+ * whenever `zoom ≠ 1`.
+ */
 export function toScreen(cam: Camera, x: number, y: number, z: number): Point {
-  const p = project(x, y, z);
-  const zoom = cam.zoom;
-  return { x: (p.x + cam.x) * zoom, y: (p.y + cam.y) * zoom };
-}
-
-/** Project into the renderer's own (pre-zoom) drawing space. */
-export function toProjected(cam: Camera, x: number, y: number, z: number): Point {
   const p = project(x, y, z);
   return { x: p.x + cam.x, y: p.y + cam.y };
 }
@@ -85,14 +86,14 @@ export function depthKey(x: number, y: number, z: number): number {
   return (x + y) * 1000 + (z > 0 ? 1 : 0);
 }
 
-/** Is a projected point inside the viewport (with a margin), in CSS px? */
+/**
+ * Is a point of the renderer's drawing space inside the viewport?
+ *
+ * `p` is in drawing space (as returned by {@link toScreen}), so it is magnified
+ * by `zoom` before being compared with the CSS viewport.
+ */
 export function visible(cam: Camera, p: Point, margin = 96): boolean {
-  const sx = (p.x + cam.x) * cam.zoom;
-  const sy = (p.y + cam.y) * cam.zoom;
-  return (
-    sx > -margin &&
-    sy > -margin &&
-    sx < cam.width + margin &&
-    sy < cam.height + margin
-  );
+  const sx = p.x * cam.zoom;
+  const sy = p.y * cam.zoom;
+  return sx > -margin && sy > -margin && sx < cam.width + margin && sy < cam.height + margin;
 }

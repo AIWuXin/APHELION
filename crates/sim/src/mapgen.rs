@@ -92,6 +92,7 @@ pub fn generate(seed: u32, w: i32, h: i32) -> Generated {
             map.height[i] = height;
         }
     }
+    carve_colony_land(&mut map, START_TX, START_TY);
     carve_roads(&mut map);
     carve_apron(&mut map, START_TX, START_TY);
     seed_deposits(seed, &mut map);
@@ -99,6 +100,44 @@ pub fn generate(seed: u32, w: i32, h: i32) -> Generated {
     Generated {
         map,
         start: (START_TX, START_TY),
+    }
+}
+
+/// Make sure the colony is founded on dry land with water access nearby.
+///
+/// The basin pull puts the map centre below the brine threshold, so without this
+/// the starting command hub would sit waist-deep in a lake -- which reads as
+/// "buildings floating on water" because placement rules and the painted map
+/// would both be correct, just badly placed. The pad is raised two steps above
+/// the basin floor so the cliff-lip renderer draws a shoreline around it.
+fn carve_colony_land(map: &mut Map, cx: i32, cy: i32) {
+    const RADIUS_X: i32 = 9;
+    const RADIUS_Y: i32 = 9;
+    for y in cy - RADIUS_Y..=cy + RADIUS_X {
+        for x in cx - RADIUS_X..=cx + RADIUS_Y {
+            let Some(i) = map.index(x, y) else {
+                continue;
+            };
+            if matches!(map.material[i], T_BRINE | T_CRYSTAL | T_SAND) {
+                // Hard-edged patchwork, not a uniform slab: two materials mixed
+                // by a deterministic stripe pattern.
+                map.material[i] = if (x * 5 + y * 3).rem_euclid(11) < 4 {
+                    T_REGOLITH
+                } else {
+                    T_BASALT
+                };
+                map.height[i] = 1;
+            }
+        }
+    }
+    // A guaranteed ore body under the seeded refinery (start + 3, + 3), so the
+    // opening economy is not a coin flip on whether a random cluster landed here.
+    for y in cy + 1..=cy + 6 {
+        for x in cx + 1..=cx + 6 {
+            if let Some(i) = map.index(x, y) {
+                map.deposit[i] = map.deposit[i].max(120);
+            }
+        }
     }
 }
 
@@ -145,11 +184,14 @@ fn carve_roads(map: &mut Map) {
 }
 
 fn carve_apron(map: &mut Map, cx: i32, cy: i32) {
-    for y in cy - 2..cy + 4 {
-        for x in cx - 2..cx + 4 {
+    // Poured concrete under the colony core; runs after the roads so the base
+    // reads as one plate instead of a haul road cutting through it.
+    for y in cy - 3..cy + 6 {
+        for x in cx - 3..cx + 7 {
             if let Some(i) = map.index(x, y) {
-                if map.material[i] != T_BRINE {
-                    map.material[i] = T_APRON;
+                map.material[i] = T_APRON;
+                if map.height[i] < 1 {
+                    map.height[i] = 1;
                 }
             }
         }

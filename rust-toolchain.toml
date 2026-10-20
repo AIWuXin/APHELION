@@ -1,0 +1,8 @@
+# Pinned so the wasm byte-gate in ci.yml is meaningful: web/public/oc.wasm is
+# committed, and the rust job rebuilds it and demands an identical file. That
+# only works when local machines and CI run the same rustc/LLVM. Bump on
+# purpose, then run `pnpm run wasm` and commit the rebuilt binary.
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

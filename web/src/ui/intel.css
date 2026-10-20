@@ -1,4 +1,4 @@
-/* ORBITAL COMMAND — rail panel internals, part 2.
+﻿/* ORBITAL COMMAND — rail panel internals, part 2.
    科技树 / 单位情报 / 事件日志, plus the panel-level viewport adaptations. */
 
 /* ---------- 5. 科技树 / research ---------- */
@@ -279,6 +279,10 @@
   .oc-log__row {
     min-height: 15px;
   }
+  /* Four log lines are enough when vertical space is scarce. */
+  .oc-log__row:nth-child(n + 5) {
+    display: none;
+  }
 }
 
 @media (max-width: 1400px) {
@@ -287,6 +291,31 @@
   }
 
   .oc-lane__en {
+    display: none;
+  }
+}
+/* Very short viewports (a 1562x906 browser window is common): shave the rail
+   budget so the last panel's 1px bottom border stays visible without scrolling. */
+@media (max-height: 950px) {
+  .oc-radar {
+    height: 96px;
+  }
+  /* The fabricator is the rail's only grow/shrink child; give it less floor so
+     the panels below it still fit. */
+  .oc-rail > .oc-panel--fab {
+    min-height: 160px;
+  }
+  .oc-fab__cards {
+    grid-auto-rows: 54px;
+  }
+  .oc-tech {
+    padding: 2px 7px;
+  }
+  .oc-log__row {
+    min-height: 15px;
+  }
+  /* Four log lines are enough when vertical space is scarce. */
+  .oc-log__row:nth-child(n + 5) {
     display: none;
   }
 }

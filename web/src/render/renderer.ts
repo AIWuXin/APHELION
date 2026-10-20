@@ -20,18 +20,15 @@ import type { BootBlob } from '../generated/BootBlob';
 import type { ShipView } from '../generated/ShipView';
 import type { UnitView } from '../generated/UnitView';
 import { BUILDING_KEYS, UNIT_KEYS } from '../generated/content-keys';
-import { METRICS, PALETTE, TILE, rgba } from '../style/tokens';
+import { PALETTE, TILE, rgba } from '../style/tokens';
 import type { Frame } from './frame';
-import { toScreen, type Camera } from './iso';
+import { toScreen } from './iso';
 import { line } from './primitives';
 import { drawAirShadows, drawInteraction, drawRouteTraces } from './overlays';
 import { BUILDING_PAINTERS } from './sprites/buildings';
 import { SHIP_PAINTERS, UNIT_PAINTERS } from './sprites/units';
 import { TerrainLayer } from './terrain-layer';
 import { GLOW } from './world-palette';
-
-const HW = TILE.w / 2;
-const HH = TILE.h / 2;
 
 /** One thing to draw, with its sort key. */
 interface Drawable {
@@ -92,28 +89,21 @@ export class Renderer {
     this.terrain = new TerrainLayer(boot.map);
   }
 
-  /** Centre the camera so the colony (map centre) sits in the middle of the viewport. */
-  public static initialCamera(boot: BootBlob, width: number, height: number): Camera {
-    // The command rail covers the right edge, so frame the colony inside the
-    // free (world) part of the viewport. The projection puts the map centre
-    // diamond at ((cx-cy)*HW, (cx+cy)*HH) -- not at half the diamond's bbox.
-    const freeWidth = Math.max(320, width - METRICS.railW);
-    const colX = boot.map.w / 2;
-    const colY = boot.map.h / 2;
-    const sx = (colX - colY) * HW;
-    const sy = (colX + colY) * HH;
-    return { x: Math.round(freeWidth / 2 - sx), y: Math.round(height / 2 - sy - 30), width, height };
-  }
-
   /** Render one frame. */
   public draw(frame: Frame): void {
     const ctx = this.ctx;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const cam = frame.camera;
+    const zoom = cam.zoom;
+    // Zoom is a canvas scale on top of the orthographic projection: painters keep
+    // drawing in projected pixels, so geometry magnifies uniformly. Hairline
+    // weight scales with it (a 1px rim becomes 1.5px at 150%); at the default
+    // 100% the 1px language is exact. See docs/decisions.md N-06.
+    ctx.setTransform(this.dpr * zoom, 0, 0, this.dpr * zoom, 0, 0);
+    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = PALETTE.void;
-    ctx.fillRect(0, 0, this.width, this.height);
+    ctx.fillRect(0, 0, this.width / zoom + 1, this.height / zoom + 1);
     if (!this.terrain) return;
 
-    const cam = frame.camera;
     const alpha = frame.alpha;
     this.terrain.draw(ctx, cam.x, cam.y);
 

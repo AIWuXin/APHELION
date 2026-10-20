@@ -21,16 +21,25 @@ export interface World {
   readonly z: number;
 }
 
-/** Camera: what portion of the diamond is on screen. */
+/**
+ * Camera: what portion of the diamond is on screen.
+ *
+ * Transform chain: `screen = (project(world) + translate) * zoom`. The renderer
+ * applies `zoom` as a canvas scale, so painters keep drawing in unscaled
+ * "projected" pixels and the whole solid magnifies uniformly.
+ */
 export interface Camera {
-  /** Pan offset in screen pixels. */
+  /** Pan offset in projected pixels. */
   x: number;
-  /** Pan offset in screen pixels. */
+  /** Pan offset in projected pixels. */
   y: number;
   /** Viewport size in CSS pixels. */
   width: number;
   /** Viewport size in CSS pixels. */
   height: number;
+  /** Magnification, 1 = native 64×32 tiles. Orthographic always: zoom never
+   * introduces perspective, it only reframes. */
+  zoom: number;
 }
 
 /** Project a world point to screen pixels (before the camera translate). */
@@ -41,8 +50,15 @@ export function project(x: number, y: number, z: number): Point {
   };
 }
 
-/** Project and apply the camera transform. */
+/** Project and apply the camera transform, in the renderer's zoomed space. */
 export function toScreen(cam: Camera, x: number, y: number, z: number): Point {
+  const p = project(x, y, z);
+  const zoom = cam.zoom;
+  return { x: (p.x + cam.x) * zoom, y: (p.y + cam.y) * zoom };
+}
+
+/** Project into the renderer's own (pre-zoom) drawing space. */
+export function toProjected(cam: Camera, x: number, y: number, z: number): Point {
   const p = project(x, y, z);
   return { x: p.x + cam.x, y: p.y + cam.y };
 }
@@ -54,9 +70,9 @@ export function unproject(sx: number, sy: number): { x: number; y: number } {
   return { x: (a + b) / 2, y: (b - a) / 2 };
 }
 
-/** Screen point to world tile coordinates (ground plane, z = 0). */
+/** CSS screen point to world tile coordinates (ground plane, z = 0). */
 export function toWorldTile(cam: Camera, sx: number, sy: number): { x: number; y: number } {
-  return unproject(sx - cam.x, sy - cam.y);
+  return unproject(sx / cam.zoom - cam.x, sy / cam.zoom - cam.y);
 }
 
 /**
@@ -69,10 +85,10 @@ export function depthKey(x: number, y: number, z: number): number {
   return (x + y) * 1000 + (z > 0 ? 1 : 0);
 }
 
-/** Is a world point inside the viewport (with a margin), in screen px? */
+/** Is a projected point inside the viewport (with a margin), in CSS px? */
 export function visible(cam: Camera, p: Point, margin = 96): boolean {
-  const sx = p.x + cam.x;
-  const sy = p.y + cam.y;
+  const sx = (p.x + cam.x) * cam.zoom;
+  const sy = (p.y + cam.y) * cam.zoom;
   return (
     sx > -margin &&
     sy > -margin &&

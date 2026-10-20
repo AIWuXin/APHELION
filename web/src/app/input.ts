@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Pointer and keyboard input.
  *
  * Input produces **intent events only**; it never mutates the world. The app
@@ -19,7 +19,7 @@ export interface InputEvents {
   /** Key press, already normalised to `KeyboardEvent.code`. */
   readonly onKey: (code: string, shift: boolean) => void;
   /** Wheel zoom request (`+1` in, `-1` out). */
-  readonly onWheel: (direction: number) => void;
+  readonly onWheel: (direction: number, x: number, y: number) => void;
 }
 
 /** Pointer state machine: click vs drag. */
@@ -107,7 +107,8 @@ export class Input {
 
     on('wheel', (ev) => {
       ev.preventDefault();
-      this.events.onWheel(ev.deltaY > 0 ? -1 : 1);
+      const rect = this.target.getBoundingClientRect();
+      this.events.onWheel(ev.deltaY > 0 ? -1 : 1, ev.clientX - rect.left, ev.clientY - rect.top);
     }, { passive: false });
   }
 }
@@ -122,10 +123,19 @@ export function bindKeys(events: InputEvents): () => void {
       'Space',
       'Escape',
       'KeyX',
+      'Digit0',
       'Digit1',
       'Digit2',
       'Digit3',
       'Digit4',
+      'Equal',
+      'Minus',
+      'NumpadAdd',
+      'NumpadSubtract',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
       'KeyR',
       'F3',
       'KeyT',

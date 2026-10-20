@@ -4,6 +4,11 @@
 //! and prints the resulting state hash. Running it twice must print the same
 //! number; CI does exactly that and fails on a mismatch.
 //!
+//! `cargo run -p oc-sim-cli -- --idle 300` boots the world, advances N frames
+//! with no commands and prints only the final state hash. The wasm hash gate
+//! compares that line with `scripts/wasm-hash.mjs` to prove the committed
+//! `web/public/oc.wasm` was built from the current kernel.
+//!
 //! The script goes through the same `Command` API a browser client uses: it
 //! scans for legal placement with `query_place`, researches techs, launches
 //! rockets, opens trade lanes and then lets the simulation play out. The
@@ -19,13 +24,28 @@ use oc_sim::World;
 const COLONY_X: i32 = oc_sim::mapgen::START_TX;
 const COLONY_Y: i32 = oc_sim::mapgen::START_TY;
 
+/// Default world seed, shared with `scripts/wasm-hash.mjs`.
+const DEFAULT_SEED: u32 = 0x5EED_1234;
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(index) = args.iter().position(|arg| arg.as_str() == "--idle") {
+        let ticks: u32 = args
+            .get(index + 1)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(300);
+        let seed: u32 = args
+            .get(index + 2)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_SEED);
+        run_idle(seed, ticks);
+        return;
+    }
     let ticks: u32 = args.first().and_then(|s| s.parse().ok()).unwrap_or(1000);
     let seed: u32 = args
         .get(1)
         .and_then(|s| s.parse().ok())
-        .unwrap_or(0x5EED_1234);
+        .unwrap_or(DEFAULT_SEED);
 
     let (hash_a, summary) = run(seed, ticks);
     let (hash_b, _) = run(seed, ticks);
@@ -39,6 +59,20 @@ fn main() {
         std::process::exit(1);
     }
     println!("determinism: OK");
+}
+
+/// Boot the world, advance `ticks` frames with no commands and print only the
+/// final state hash.
+///
+/// One line, `0x` plus eight lowercase hex digits, so a shell can compare it
+/// with `node scripts/wasm-hash.mjs` byte for byte. The kernel is deterministic,
+/// so a native build and a wasm build of the same sources must agree.
+fn run_idle(seed: u32, ticks: u32) {
+    let mut world = World::new(seed);
+    for _ in 0..ticks {
+        world.step();
+    }
+    println!("{:#010x}", world.hash());
 }
 
 /// Everything the scripted run reports; the smoke test greps these lines.

@@ -346,3 +346,27 @@ exe 必须在 Windows 上构建（否则拿到的是 Linux 二进制），所以
 **影响**：正向——同屏轨道接触点有确定上界，长时间对局不再累积；血量与内容表单一来源，
 以后调表不会与生成逻辑漂移。负向——高波数下轨道不再出现更多敌舰（它们本就不可交互）；
 状态哈希的演变与旧版本不同，但确定性测试与玩法测试都是同一构建双跑对拍，不受影响。
+
+---
+
+## D-11 · 入库 wasm 的门禁：字节比较改为行为哈希比较
+
+**改了什么**：删除 CI rust job 里「重建 `web/public/oc.wasm` 后 `git diff` 必须为空」的字节门禁，
+换成行为门禁：`git show HEAD:web/public/oc.wasm` 取出**入库版本**（构建步骤会覆写工作区文件，
+所以不能读文件系统），`scripts/wasm-hash.mjs` 以固定种子 `0x5EED_1234` 跑 300 个 idle 帧并打印
+`oc_state_hash()`；原生侧由 `cargo run -q -p oc-sim-cli -- --idle 300` 打印同一格式的哈希，
+两侧字符串不等即失败并提示 `pnpm run wasm`。`scripts/ci.mjs` 也在重建 wasm **之前**执行同一比较。
+`rust-toolchain.toml` 继续钉 1.96.0。
+
+**为什么**：wasm 二进制数据段会内嵌编译期的源文件路径。入库二进制里能直接看到
+`crates\sim\src\world.rs`、`C:\Users\12591\.rustup\toolchains\stable-x86_64-pc-windows-msvc\...\thread\local.rs`
+这样的 Windows 绝对路径（反斜杠）；Linux runner 用同一棵源码树构建时，同一批字符串会变成
+`crates/sim/src/world.rs` 和另一条绝对路径。分隔符、用户名、rustup 位置全都不同，字节**永远**
+不可能一致——这正是原门禁在 CI 上实测失败的原因。而状态哈希（D-05）是对「hash=0 的快照帧」
+做 postcard 编码后取 FNV-1a，只取决于仿真状态，与宿主文件系统和路径无关，因此跨平台可比。
+
+**影响**：正向——门禁检查的正是「入库 wasm 是不是当前内核」，不再被主机路径噪声打败；同一份
+源码在 Windows / Linux 上必须给出同一个哈希，这也顺带把「确定性内核」的跨平台性变成 CI 事实。
+负向——行为门禁只覆盖 `oc_init → oc_step × N → oc_state_hash` 这一条路径（导出表与渲染行为由
+web job 的 `wasm-map.test.ts` 覆盖）；`oc_state_hash` 是新增 ABI（原有 `oc_hash` 保留并委托给它），
+用缺少该导出的旧 wasm 跑脚本会明确报错并提示重建，而不是静默通过。

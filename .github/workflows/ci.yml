@@ -42,15 +42,23 @@ jobs:
           echo "generated TypeScript + fixtures are in sync with the Rust declarations"
       - name: determinism（3000 ticks, two runs must agree）
         run: cargo run -q -p oc-sim-cli -- 3000
-      - name: wasm release build（also refreshes web/public/oc.wasm）
-        run: node scripts/build-wasm.mjs
-      - name: committed wasm must match the kernel sources
+      # Behavioural staleness gate. It must run *before* the release build --
+      # that step overwrites web/public/oc.wasm, so the committed binary is
+      # read from HEAD instead of the working tree. Byte comparison is not an
+      # option: rustc embeds host-specific source paths (C:\Users\... and
+      # crates\sim\src\...) in the wasm data section.
+      - name: committed wasm behaves like the kernel sources
         run: |
-          if ! git diff --quiet -- web/public/oc.wasm; then
-            echo "::error::web/public/oc.wasm is stale. Run 'pnpm run wasm' and commit the rebuilt binary."
+          git show HEAD:web/public/oc.wasm > /tmp/committed-oc.wasm
+          NATIVE=$(cargo run -q -p oc-sim-cli -- --idle 300)
+          WASM=$(node scripts/wasm-hash.mjs /tmp/committed-oc.wasm 300)
+          echo "native: $NATIVE  wasm: $WASM"
+          if [ "$NATIVE" != "$WASM" ]; then
+            echo "::error::Committed web/public/oc.wasm is stale (native $NATIVE vs wasm $WASM). Run 'pnpm run wasm' and commit the rebuilt binary."
             exit 1
           fi
-          echo "committed oc.wasm matches the Rust kernel"
+      - name: wasm release build（also refreshes web/public/oc.wasm）
+        run: node scripts/build-wasm.mjs
 
   web:
     name: web（typecheck / lint / test / build / guards）

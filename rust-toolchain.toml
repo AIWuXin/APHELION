@@ -1,6 +1,10 @@
-# Pinned so the wasm byte-gate in ci.yml is meaningful: web/public/oc.wasm is
-# committed, and the rust job rebuilds it and demands an identical file. That
-# only works when local machines and CI run the same rustc/LLVM. Bump on
+# Pinned for reproducible kernel builds: web/public/oc.wasm is committed, and
+# CI checks that it still *behaves* like the current sources (native vs wasm
+# idle state hash). Byte comparison is impossible in practice -- rustc embeds
+# host-specific source paths (backslash crate paths plus C:\Users\... on
+# Windows, forward-slash paths plus a different home directory on Linux) in
+# the wasm data section. The pin keeps local machines and CI on one known-good
+# rustc/LLVM, so a rebuild only changes when the sources change. Bump on
 # purpose, then run `pnpm run wasm` and commit the rebuilt binary.
 [toolchain]
 channel = "1.96.0"

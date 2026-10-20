@@ -1,6 +1,6 @@
 //! Thin wasm bridge.
 //!
-//! Deliberately **raw**: a dozen `extern "C"` functions over linear memory
+//! Deliberately **raw**: sixteen `extern "C"` functions over linear memory
 //! instead of `wasm-bindgen` glue. The protocol is already binary, so the whole
 //! bridge is "write bytes here, call this, read bytes there". That keeps the
 //! build to a single `cargo build --target wasm32-unknown-unknown`, removes a
@@ -175,8 +175,25 @@ pub extern "C" fn oc_tick() -> u32 {
 }
 
 /// State hash of the most recent tick.
+///
+/// Kept for ABI compatibility: it is the same value as [`oc_state_hash`].
 #[no_mangle]
 pub extern "C" fn oc_hash() -> u32 {
+    oc_state_hash()
+}
+
+/// Deterministic state hash of the live world.
+///
+/// Same algorithm and value as `oc-sim-cli --idle` prints: FNV-1a over the
+/// postcard-encoded snapshot frame taken with a zero hash field. A wasm build
+/// and a native build of the same sources must therefore report the same
+/// number for the same seed and tick count -- that is what CI's wasm staleness
+/// gate compares.
+///
+/// Returns 0 when no world exists yet (before [`oc_init`]); a real frame never
+/// hashes to 0 in practice, and the gate always calls this after `oc_init`.
+#[no_mangle]
+pub extern "C" fn oc_state_hash() -> u32 {
     WORLD.with(|w| w.borrow().as_ref().map_or(0, |world| world.hash()))
 }
 

@@ -1,0 +1,245 @@
+/* ORBITAL COMMAND — top status bar.
+   One continuous instrument strip: status lamp, stardate clock, four resource
+   readouts with cyan per-minute deltas, a contextual hint, pause + speed. */
+
+/* ---------- 3. top bar ---------- */
+.oc-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  height: var(--oc-topbar-h);
+  padding: 0 10px;
+  background: var(--oc-void);
+  border-bottom: 1px solid var(--oc-line-bright);
+  pointer-events: auto;
+}
+
+.oc-topbar__cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 12px;
+  border-right: 1px solid var(--oc-line);
+  white-space: nowrap;
+}
+
+.oc-topbar__cell:first-child {
+  padding-left: 0;
+}
+
+.oc-topbar__label {
+  font-size: var(--oc-fs-sm);
+  letter-spacing: 0.18em;
+  color: var(--oc-ink-3);
+}
+
+.oc-led {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--oc-status);
+}
+
+.oc-led i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+}
+
+.oc-led span {
+  font-size: var(--oc-fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+.oc-led.is-alert {
+  color: var(--oc-danger);
+}
+
+.oc-clock {
+  font-family: var(--oc-font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--oc-ink);
+}
+
+.oc-resbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 14px;
+  border-right: 1px solid var(--oc-line);
+}
+
+.oc-res {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.oc-res__icon {
+  align-self: center;
+  color: var(--oc-ink-3);
+}
+
+.oc-res__icon svg {
+  width: 11px;
+  height: 11px;
+}
+
+.oc-res__label {
+  font-size: var(--oc-fs-sm);
+  letter-spacing: 0.18em;
+  color: var(--oc-ink-3);
+}
+
+.oc-res__value,
+.oc-res__load {
+  font-family: var(--oc-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--oc-fs-lg);
+  font-weight: 700;
+  color: var(--oc-ink);
+}
+
+.oc-res--alloy .oc-res__value,
+.oc-res--alloy .oc-res__icon {
+  color: var(--oc-primary);
+}
+
+.oc-res--energy .oc-res__value,
+.oc-res--energy .oc-res__icon {
+  color: var(--oc-function);
+}
+
+.oc-res--energy .oc-res__load,
+.oc-res--energy .oc-res__slash {
+  color: var(--oc-ink-2);
+}
+
+.oc-res__role {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--oc-ink-3);
+}
+
+.oc-res__slash {
+  color: var(--oc-ink-3);
+}
+
+.oc-res__delta {
+  min-width: 28px;
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-fs-sm);
+  color: var(--oc-function);
+}
+
+.oc-res.is-deficit .oc-res__load,
+.oc-res.is-deficit .oc-res__delta {
+  color: var(--oc-danger);
+}
+
+.oc-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 14px;
+  font-size: var(--oc-fs-sm);
+  letter-spacing: 0.1em;
+  color: var(--oc-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oc-topbar__end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding-left: 10px;
+  border-left: 1px solid var(--oc-line);
+}
+
+.oc-topbar__rule {
+  width: 1px;
+  height: 16px;
+  background: var(--oc-line);
+}
+
+.oc-pause {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--oc-panel-2);
+  border: 1px solid var(--oc-line-bright);
+  color: var(--oc-ink-2);
+  font-size: var(--oc-fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.oc-pause:hover:not(:disabled) {
+  background: var(--oc-panel-3);
+  color: var(--oc-ink);
+}
+
+.oc-pause.is-active,
+.oc-pause.is-active:hover {
+  background: var(--oc-primary-fill);
+  border-color: var(--oc-primary);
+  color: var(--oc-void);
+}
+
+.oc-pause__icon svg,
+.oc-speed__chip svg {
+  width: 10px;
+  height: 10px;
+}
+
+.oc-pause:disabled,
+.oc-speed__chip:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.oc-speed {
+  display: flex;
+  gap: 2px;
+}
+
+.oc-speed__chip {
+  width: 26px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--oc-panel-2);
+  border: 1px solid var(--oc-line-bright);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-fs-sm);
+  font-weight: 700;
+  color: var(--oc-ink-2);
+}
+
+.oc-speed__chip:hover:not(:disabled) {
+  background: var(--oc-panel-3);
+  color: var(--oc-ink);
+}
+
+.oc-speed__chip.is-active {
+  background: var(--oc-primary-fill);
+  border-color: var(--oc-primary);
+  color: var(--oc-void);
+}

@@ -1,0 +1,284 @@
+/* ORBITAL COMMAND — overlays.
+   Left-bottom sandbox plate, bottom subtitle with its inverted speaker tag, the
+   danger alert strip and the ?debug=1 telemetry block. */
+
+/* ---------- 5. sandbox ---------- */
+.oc-sandbox {
+  position: absolute;
+  left: 8px;
+  bottom: calc(var(--oc-subtitle-h) + 8px);
+  z-index: 18;
+  width: var(--oc-sandbox-w);
+}
+
+.oc-hud.is-debug .oc-sandbox {
+  bottom: calc(var(--oc-subtitle-h) + 96px);
+}
+
+.oc-sandbox__key {
+  padding: 0 3px;
+  border: 1px solid var(--oc-line);
+  font-family: var(--oc-font-mono);
+  font-size: 9px;
+  line-height: 13px;
+  letter-spacing: 0.2em;
+  color: var(--oc-ink-3);
+}
+
+.oc-panel--sandbox .oc-panel__body {
+  gap: 5px;
+  padding: 6px;
+}
+
+.oc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--oc-panel-2);
+  border: 1px solid var(--oc-line-bright);
+  color: var(--oc-ink);
+  font-size: var(--oc-fs-md);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+}
+
+.oc-toggle:hover:not(.is-on) {
+  background: var(--oc-panel-3);
+}
+
+.oc-toggle.is-on {
+  background: var(--oc-primary-fill);
+  border-color: var(--oc-primary);
+  color: var(--oc-void);
+}
+
+.oc-toggle__icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.oc-toggle__state {
+  margin-left: auto;
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-fs-sm);
+  letter-spacing: 0.18em;
+  color: var(--oc-ink-3);
+}
+
+.oc-toggle.is-on .oc-toggle__state {
+  color: var(--oc-void);
+}
+
+.oc-seg {
+  display: grid;
+  grid-template-columns: 46px repeat(3, 1fr);
+  gap: 3px;
+  align-items: center;
+}
+
+.oc-seg__label {
+  font-size: var(--oc-fs-sm);
+  letter-spacing: 0.1em;
+  color: var(--oc-ink-2);
+  white-space: nowrap;
+}
+
+.oc-seg button {
+  height: 20px;
+  background: var(--oc-panel-2);
+  border: 1px solid var(--oc-line-bright);
+  color: var(--oc-ink-2);
+  font-size: var(--oc-fs-md);
+  font-weight: 700;
+}
+
+.oc-seg button:hover:not(.is-active) {
+  background: var(--oc-panel-3);
+  color: var(--oc-ink);
+}
+
+.oc-seg button.is-active {
+  background: var(--oc-primary-fill);
+  border-color: var(--oc-primary);
+  color: var(--oc-void);
+}
+
+.oc-footnote {
+  padding-top: 5px;
+  border-top: 1px solid var(--oc-line);
+  font-size: var(--oc-fs-sm);
+  line-height: 1.5;
+  letter-spacing: 0.05em;
+  color: var(--oc-ink-3);
+}
+
+/* ---------- 6. subtitle + alert ---------- */
+.oc-subtitle {
+  position: absolute;
+  left: 0;
+  right: var(--oc-rail-w);
+  bottom: 0;
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--oc-subtitle-h);
+  padding: 0 12px;
+  background: var(--oc-void);
+  border-top: 1px solid var(--oc-line);
+  pointer-events: none;
+}
+
+.oc-subtitle__who {
+  padding: 2px 6px;
+  background: var(--oc-status);
+  color: var(--oc-void);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  transition: opacity 400ms linear;
+}
+
+.oc-subtitle__line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--oc-fs-md);
+  color: var(--oc-ink);
+  transition: opacity 900ms linear;
+}
+
+.oc-subtitle__seed {
+  margin-left: auto;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--oc-ink-3);
+  transition: opacity 400ms linear;
+}
+
+.oc-subtitle.is-faded .oc-subtitle__line {
+  opacity: 0.36;
+}
+
+.oc-subtitle.is-faded .oc-subtitle__who,
+.oc-subtitle.is-faded .oc-subtitle__seed {
+  opacity: 0.55;
+}
+
+.oc-alert {
+  position: absolute;
+  top: var(--oc-topbar-h);
+  left: 0;
+  right: var(--oc-rail-w);
+  z-index: 19;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 24px;
+  padding: 0 12px;
+  background: var(--oc-panel);
+  border-bottom: 1px solid var(--oc-danger);
+  border-left: 1px solid var(--oc-danger);
+  color: var(--oc-ink);
+  transform: translateY(-100%);
+  transition: transform 120ms linear;
+  pointer-events: none;
+}
+
+.oc-alert.is-shown {
+  transform: translateY(0);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.oc-alert__tag {
+  padding: 2px 6px;
+  background: var(--oc-danger);
+  color: var(--oc-void);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.24em;
+}
+
+.oc-alert__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--oc-fs-md);
+}
+
+.oc-alert__go {
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-fs-sm);
+  letter-spacing: 0.16em;
+  color: var(--oc-danger);
+  white-space: nowrap;
+}
+
+.oc-alert.is-warn {
+  border-color: var(--oc-primary);
+}
+
+.oc-alert.is-warn .oc-alert__tag {
+  background: var(--oc-primary);
+}
+
+.oc-alert.is-warn .oc-alert__go {
+  color: var(--oc-primary);
+}
+
+/* ---------- 7. debug overlay ---------- */
+.oc-debug {
+  position: absolute;
+  left: 8px;
+  bottom: calc(var(--oc-subtitle-h) + 6px);
+  z-index: 22;
+  width: 424px;
+  padding: 5px 7px;
+  background: var(--oc-void);
+  border: 1px solid var(--oc-line);
+  font-family: var(--oc-font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--oc-ink-2);
+  pointer-events: none;
+}
+
+.oc-debug__title {
+  margin-bottom: 2px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--oc-primary);
+}
+
+.oc-debug__grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0 8px;
+}
+
+.oc-debug__k {
+  color: var(--oc-ink-3);
+  letter-spacing: 0.08em;
+}
+
+.oc-debug__v {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--oc-ink);
+}
+
+.oc-debug__v.is-warn {
+  color: var(--oc-primary);
+}

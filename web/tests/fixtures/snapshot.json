@@ -1,0 +1,40 @@
+{
+  "protocol": 1,
+  "tick": 300,
+  "hash": 3735928559,
+  "time_ms": 9900,
+  "status": 1,
+  "speed": 2,
+  "resources": {
+    "alloy": 420, "alloy_rate": 46, "fuel": 90, "fuel_rate": 30,
+    "research": 12, "research_rate": 7, "energy_out": 60, "energy_in": 24
+  },
+  "orbital": {
+    "capacity": 6, "used": 2,
+    "routes": [
+      { "active": true, "progress": 501, "throughput": 1000, "loads": 3, "grade": 250 },
+      { "active": false, "progress": 0, "throughput": 0, "loads": 0, "grade": 0 }
+    ],
+    "wave": 3, "fleet_eta_ms": 12345, "threat": 2,
+    "ships": [
+      { "id": 90, "kind": 3, "x": 1024, "y": -2048, "z": 512, "hp": 95, "hp_max": 95, "state": 2, "owner": 0, "target": 77 }
+    ]
+  },
+  "policy": { "sandbox_flags": 3, "ai_phase": 1, "ai_strength": 2 },
+  "buildings": [
+    { "id": 7, "kind": 1, "tx": 24, "ty": 19, "hp": 180, "hp_max": 180, "state": 2, "progress": 1000, "charge": 0, "flags": 3, "aux": 46 }
+  ],
+  "units": [
+    { "id": 42, "kind": 0, "x": -3072, "y": 768, "z": 0, "hp": 130, "hp_max": 130, "state": 1, "facing": 5, "owner": 1, "target": 7 }
+  ],
+  "effects": [
+    { "kind": 2, "x": 100, "y": 200, "z": 300, "age": 4, "life": 16, "value": 26, "owner": 1 }
+  ],
+  "beams": [
+    { "kind": 1, "x0": 10, "y0": 20, "z0": 280, "x1": 30, "y1": 40, "z1": 100, "age": 1, "life": 6, "owner": 0 }
+  ],
+  "events": [
+    { "kind": 5, "a": 3, "b": 110, "tx": -1, "ty": -1 },
+    { "kind": 8, "a": 2, "b": 0, "tx": 7, "ty": 9 }
+  ]
+}

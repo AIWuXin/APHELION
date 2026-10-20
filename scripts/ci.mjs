@@ -1,0 +1,64 @@
+#!/usr/bin/env node
+/**
+ * One command CI. Everything the brief asks for, in the order that fails fastest.
+ *
+ *   node scripts/ci.mjs            full run
+ *   node scripts/ci.mjs --web      skip the Rust half
+ *   node scripts/ci.mjs --rust     skip the web half
+ */
+
+import { spawnSync } from 'node:child_process';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const onlyWeb = process.argv.includes('--web');
+const onlyRust = process.argv.includes('--rust');
+
+const results = [];
+
+function run(label, command, args) {
+  process.stdout.write(`\n=== ${label} ===\n`);
+  const started = Date.now();
+  const result = spawnSync(command, args, {
+    cwd: root,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: { ...process.env, RUSTFLAGS: '-D warnings' },
+  });
+  const seconds = ((Date.now() - started) / 1000).toFixed(1);
+  const ok = result.status === 0;
+  results.push({ label, ok, seconds });
+  if (!ok) {
+    console.error(`\n[ci] FAILED: ${label} (${seconds}s)`);
+    summarise();
+    process.exit(1);
+  }
+}
+
+function summarise() {
+  console.log('\n=== ci summary ===');
+  for (const r of results) {
+    console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.seconds.padStart(6)}s  ${r.label}`);
+  }
+}
+
+if (!onlyWeb) {
+  run('rust: cargo fmt --check', 'cargo', ['fmt', '--all', '--', '--check']);
+  run('rust: cargo clippy -D warnings', 'cargo', ['clippy', '--all-targets', '--all-features', '--', '-D', 'warnings']);
+  run('rust: cargo test', 'cargo', ['test', '--all-features']);
+  run('rust: headless determinism (3000 ticks)', 'cargo', ['run', '-q', '-p', 'oc-sim-cli', '--', '3000']);
+  run('rust: wasm32 release build', 'node', ['scripts/build-wasm.mjs']);
+}
+
+if (!onlyRust) {
+  run('web: typecheck', 'npx', ['tsc', '--noEmit']);
+  run('web: eslint', 'npx', ['eslint', '.']);
+  run('web: unit tests', 'npx', ['vitest', 'run']);
+  run('web: vite build', 'npx', ['vite', 'build']);
+  run('web: file length guard', 'node', ['scripts/check-file-length.mjs']);
+  run('web: no bitmap / emoji assets', 'node', ['scripts/check-assets.mjs']);
+}
+
+summarise();
+console.log('\n[ci] all green');

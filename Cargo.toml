@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/iso",
+  "crates/content",
+  "crates/protocol",
+  "crates/sim",
+  "crates/sim-cli",
+  "crates/bridge-wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+
+[workspace.dependencies]
+oc-iso = { path = "crates/iso" }
+oc-content = { path = "crates/content" }
+oc-protocol = { path = "crates/protocol" }
+oc-sim = { path = "crates/sim" }
+
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.0", default-features = false, features = ["alloc"] }
+ts-rs = "10.1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 1

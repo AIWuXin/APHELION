@@ -1,0 +1,11 @@
+[package]
+name = "oc-sim-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+oc-sim = { workspace = true }
+oc-protocol = { workspace = true }
+oc-content = { workspace = true }
+postcard = { workspace = true }

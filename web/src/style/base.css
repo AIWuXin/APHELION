@@ -1,0 +1,80 @@
+/* Base frame: reset, layout skeleton, canvas sizing.
+   Component styling lives in web/src/ui/hud.css and is injected by the HUD. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--oc-void, #05090a);
+  color: var(--oc-ink, #c9d6d6);
+  font-family: var(--oc-font-sans, sans-serif);
+  font-size: var(--oc-fs-md, 12px);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+  cursor: crosshair;
+}
+
+#world {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: auto;
+}
+
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* The HUD sits above the world but only its controls take the pointer. */
+}
+
+#hud button,
+#hud [data-interactive='true'] {
+  pointer-events: auto;
+}
+
+#boot-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--oc-void, #05090a);
+  transition: opacity 260ms linear;
+  z-index: 40;
+}
+
+#boot-veil.gone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-line {
+  font-family: var(--oc-font-mono, monospace);
+  font-size: 14px;
+  letter-spacing: 0.42em;
+  color: var(--oc-primary, #f0c050);
+}
+
+.boot-sub {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--oc-ink-3, #5d6d70);
+}

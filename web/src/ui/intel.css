@@ -1,0 +1,292 @@
+/* ORBITAL COMMAND — rail panel internals, part 2.
+   科技树 / 单位情报 / 事件日志, plus the panel-level viewport adaptations. */
+
+/* ---------- 5. 科技树 / research ---------- */
+.oc-tech {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas: 'main cost btn' 'effect effect btn';
+  align-items: center;
+  gap: 1px 7px;
+  padding: 3px 7px;
+  border-bottom: 1px solid var(--oc-line);
+}
+
+.oc-tech:last-child {
+  border-bottom: 0;
+}
+
+.oc-tech__main {
+  grid-area: main;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.oc-tech__name {
+  font-size: var(--oc-fs-md);
+  font-weight: 700;
+  color: var(--oc-ink);
+  white-space: nowrap;
+}
+
+.oc-tech__en {
+  overflow: hidden;
+  font-family: var(--oc-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--oc-ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oc-tech__effect {
+  grid-area: effect;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.1;
+  color: var(--oc-ink-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oc-tech__cost {
+  grid-area: cost;
+  font-size: var(--oc-fs-md);
+  font-weight: 700;
+  color: var(--oc-primary-dim);
+}
+
+.oc-tech.is-affordable .oc-tech__cost {
+  color: var(--oc-primary);
+}
+
+.oc-tech__btn {
+  grid-area: btn;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.oc-tech__stock {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--oc-primary);
+}
+
+/* ---------- 6. 单位情报 / readout ---------- */
+.oc-readout__empty {
+  padding: 6px 7px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--oc-ink-3);
+}
+
+.oc-readout__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 7px 6px;
+}
+
+.oc-readout__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.oc-readout__art {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  background: var(--oc-void);
+  border: 1px solid var(--oc-line);
+  color: var(--oc-ink-2);
+}
+
+.oc-readout__art svg {
+  width: 18px;
+  height: 18px;
+}
+
+.oc-readout__id {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.oc-readout__name {
+  overflow: hidden;
+  font-size: var(--oc-fs-lg);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--oc-ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oc-readout__sub {
+  overflow: hidden;
+  font-family: var(--oc-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--oc-ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oc-readout__state {
+  flex: 0 0 auto;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--oc-ink-2);
+  white-space: nowrap;
+}
+
+.oc-readout__state.is-busy {
+  color: var(--oc-function);
+}
+
+.oc-readout__state.is-warn {
+  color: var(--oc-primary);
+}
+
+.oc-readout__state.is-danger,
+.oc-readout__meta .is-danger {
+  color: var(--oc-danger);
+}
+
+.oc-readout__hp {
+  flex: 0 0 auto;
+  height: 3px;
+}
+
+.oc-readout__hp > i {
+  background: var(--oc-status);
+}
+
+.oc-readout__hp.is-low > i {
+  background: var(--oc-danger);
+}
+
+.oc-readout__prog {
+  height: 2px;
+}
+
+.oc-readout__prog > i {
+  background: var(--oc-primary);
+}
+
+.oc-readout__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--oc-ink-2);
+}
+
+.oc-readout__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.oc-readout__act {
+  height: 22px;
+}
+
+/* ---------- 7. 事件日志 / event log ---------- */
+.oc-log__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.oc-log__row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 16px;
+  padding: 1px 7px;
+  border-bottom: 1px solid var(--oc-line);
+}
+
+.oc-log__row:last-child {
+  border-bottom: 0;
+}
+
+.oc-log__row.is-pinned {
+  cursor: pointer;
+}
+
+.oc-log__row.is-pinned:hover {
+  background: var(--oc-panel-2);
+}
+
+.oc-log__time {
+  flex: 0 0 auto;
+  font-size: 9px;
+  color: var(--oc-ink-3);
+}
+
+.oc-log__text {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--oc-ink-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oc-log__row.is-warn .oc-log__text {
+  color: var(--oc-primary);
+}
+
+.oc-log__row.is-danger .oc-log__text {
+  color: var(--oc-danger);
+}
+
+.oc-log__row.is-good .oc-log__text {
+  color: var(--oc-status);
+}
+
+.oc-log__empty {
+  padding: 6px 7px;
+  font-size: 10px;
+  color: var(--oc-ink-3);
+}
+
+/* ---------- 8. panel level viewport adaptations ---------- */
+@media (max-height: 960px) {
+  .oc-radar {
+    height: 108px;
+  }
+
+  .oc-tech {
+    padding: 2px 7px;
+  }
+}
+
+@media (max-height: 820px) {
+  .oc-radar {
+    height: 92px;
+  }
+
+  .oc-log__row {
+    min-height: 15px;
+  }
+}
+
+@media (max-width: 1400px) {
+  .oc-fab__tab {
+    font-size: 10px;
+  }
+
+  .oc-lane__en {
+    display: none;
+  }
+}

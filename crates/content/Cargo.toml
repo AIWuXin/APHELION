@@ -1,0 +1,12 @@
+[package]
+name = "oc-content"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+oc-protocol = { workspace = true }
+postcard = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }

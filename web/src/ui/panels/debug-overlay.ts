@@ -1,4 +1,4 @@
-/**
+﻿/**
  * `?debug=1` overlay.
  *
  * Ten-pixel monospace block, bottom-left, pointer-transparent: frame rate, sim
@@ -38,7 +38,7 @@ export class DebugOverlay {
       this.rows.set(key, { value });
     }
     this.element = h('div', { class: 'oc-debug' }, [
-      h('div', { class: 'oc-debug__title', text: 'OC DEBUG // ?debug=1' }),
+      h('div', { class: 'oc-debug__title', text: 'APHELION DEBUG // ?debug=1' }),
       grid,
     ]);
     this.element.hidden = true;

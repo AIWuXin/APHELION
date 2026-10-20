@@ -5,7 +5,7 @@
  *   node scripts/package-exe.mjs [--debug]
  *
  * Steps: wasm build → vite build → cargo build -p oc-launcher --release →
- * copy the binary to `dist-exe/ORBITAL-COMMAND-<version>.exe`.
+ * copy the binary to `dist-exe/APHELION-<version>.exe`.
  *
  * The launcher embeds every file of `dist/` via `include_bytes!`, so the exe is
  * the whole game: double-click it and the default browser opens on the served
@@ -55,7 +55,7 @@ const cargoArgs = ['build', '-p', 'oc-launcher'];
 if (!debug) cargoArgs.push('--release');
 run('cargo', cargoArgs, `build launcher (${profile})`);
 
-const exeName = process.platform === 'win32' ? 'orbital-command.exe' : 'orbital-command';
+const exeName = process.platform === 'win32' ? 'aphelion.exe' : 'aphelion';
 const built = join(root, 'target', profile, exeName);
 if (!existsSync(built)) {
   console.error(`[package-exe] launcher binary missing: ${built}`);
@@ -65,7 +65,7 @@ if (!existsSync(built)) {
 const version = displayVersion();
 const outDir = join(root, 'dist-exe');
 mkdirSync(outDir, { recursive: true });
-const outName = process.platform === 'win32' ? `ORBITAL-COMMAND-${version}.exe` : `ORBITAL-COMMAND-${version}`;
+const outName = process.platform === 'win32' ? `APHELION-${version}.exe` : `APHELION-${version}`;
 const target = join(outDir, outName);
 copyFileSync(built, target);
 

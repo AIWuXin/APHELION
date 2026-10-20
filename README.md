@@ -1,7 +1,10 @@
-# 星区指挥终端 / ORBITAL COMMAND `0.1.0a0`
+﻿# APHELION · 远日点指挥终端 `0.1.0a0`
+
+> **APHELION** —— 轨道上离恒星最远的那一点。把它当作一座被遗弃在矿脉行星上的指挥终端：
+> 资源、运力、补给他们都在最远端，你只有自己的判断。
 
 等距视角的星球建造 + 太空计划 + 星际物流与舰队对抗。**Rust 仿真内核 + TypeScript 表现层**，
-在浏览器里单机运行；同时提供单文件 Windows 启动器（`dist-exe/ORBITAL-COMMAND-0.1.0a0.exe`）。
+在浏览器里单机运行；同时提供单文件 Windows 启动器（`dist-exe/APHELION-0.1.0a0.exe`）。
 
 ```
 建造殖民地 → 通电与采掘 → 造火箭送上轨道 → 开通星际航线 → 抵御周期来袭的舰队 → 再投资
@@ -13,6 +16,11 @@
 
 ![combat](docs/screenshot-combat.png)
 
+- **确定性内核**：同 seed + 同命令序列 → 同状态哈希（CI 双跑比对，3000 tick）
+- **二进制协议**：postcard 经线性内存传输，零 JSON；类型由 `ts-rs` 从 Rust 生成，跨语言固件测试兜底
+- **零运行时依赖**：前端无框架、无位图、无 emoji、无图标字体；世界 Canvas，HUD 是 DOM
+- **一条命令出 exe**：`pnpm run package` → 0.42 MiB 单文件，内嵌全部前端资源
+
 ---
 
 ## 快速开始
@@ -20,7 +28,7 @@
 **方式 A：直接双击 `exe`（推荐给只想玩的人）**
 
 ```text
-dist-exe\ORBITAL-COMMAND-0.1.0a0.exe
+dist-exe\APHELION-0.1.0a0.exe
 ```
 
 单文件、0.42 MiB，前端资源（HTML / JS / CSS / wasm）全部内嵌在二进制里。双击后它会在
@@ -207,3 +215,11 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 - AI 只有「跃迁波次导演」，没有真正的对手建造 AI；难度由波次编制与间隔表达。
 - 科技树 4 项、建筑 14 种、单位 7 种：够走完闭环，不是完整商业体量。
 - 跨平台字形宽度差异（N-02）：中文字距在 Windows/macOS 上略有不同，已用 px 字号与字距约束住。
+
+---
+
+## 许可证
+
+MIT，见 [`LICENSE`](LICENSE)。欢迎 issue / PR；架构与取舍先读
+[`docs/design.md`](docs/design.md) 与 [`docs/decisions.md`](docs/decisions.md)，改内容只读
+[`docs/architecture.md`](docs/architecture.md) 的「怎么加一个建筑 / 怎么换 Transport」。

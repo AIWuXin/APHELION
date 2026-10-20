@@ -1,4 +1,4 @@
-# 决策记录 / Decisions
+﻿# 决策记录 / Decisions
 
 每条记录三段：**改了什么 / 为什么 / 影响是什么**。规范里「默认值」的偏离都在这，
 「不变量」的冲突裁决也在这。编号 N-xx 为默认值偏离，D-xx 为方向性决策，C-xx 为冲突裁决。
@@ -188,12 +188,12 @@ RTS 语境里通常仍可平移；44×44 的地图在 1920 宽下只能看到约
 
 ## D-09 · 打包成单文件 exe：自建 std-only 启动器，而不是 Tauri / Electron
 
-**改了什么**：新增 `crates/launcher`（bin 名 `orbital-command`，**零第三方依赖**）：
+**改了什么**：新增 `crates/launcher`（bin 名 `aphelion`，**零第三方依赖**）：
 `build.rs` 把 `dist/` 里每个文件 `include_bytes!` 进二进制，运行时用 `TcpListener` 起一个
 最小 HTTP/1.1 服务（含 `application/wasm` MIME、`HEAD`、405/404），再用
 `cmd /c start "" <url>`（带 `CREATE_NO_WINDOW`）打开系统默认浏览器；Windows 下把控制台切到
 UTF-8 代码页并设置窗口标题。`scripts/package-exe.mjs` 一条命令产出
-`dist-exe/ORBITAL-COMMAND-0.1.0a0.exe`（0.42 MiB）。
+`dist-exe/APHELION-0.1.0a0.exe`（0.42 MiB）。
 
 **为什么**：需求是「浏览器里运行的单机 demo」，同时用户想要「双击就能开始」。三个候选：
 
@@ -271,6 +271,31 @@ UTF-8 代码页并设置窗口标题。`scripts/package-exe.mjs` 一条命令产
 「交互取景」优先于「任意缩放级别下的 1px 精确」，并在 `renderer.ts` 与
 `docs/design.md` 注明；若评审要求严格 1px，把缩放档位限制为 `100%/200%` 即可
 （两档下棱线仍为整数像素），只需改 `ZOOM_MIN/MAX` 与步进。
+
+---
+
+## N-08 · 品牌定名：APHELION / 远日点指挥终端（内部前缀 oc- 保留）
+
+**改了什么**：对外品牌从「ORBITAL COMMAND / 星区指挥终端」改为 **APHELION / 远日点指挥终端**，
+仓库名 `aphelion`，产物 `dist-exe/APHELION-<version>.exe`。用了 41 处、17 个文件的字符串
+替换（`scripts/rename-brand.mjs` 一次性完成，只替换品牌 token，不碰 `orbital` 这个游戏设计词，
+也不碰内部前缀）。**保留**的内部标识：crate 名 `oc-*`、CSS 变量 `--oc-*` 与类名 `.oc-*`、
+wasm ABI 的 `oc_init` / `oc_step` / ...、`window.__ocCamera`。
+
+**为什么**：
+1. 用户定名 APHELION。它与游戏内第一条星际航线「远日点矿带 / APHELION BELT」同源——
+   "离恒星最远的那一点"正是边境殖民地的处境，世界观自洽，而不是硬凑的词。
+2. 原名的搜索面太宽："Orbital Command" 既是 RTS 里的常见技能名，也已有同名游戏条目，
+   在 GitHub / 商店里都不利于被准确指认。
+3. 内部前缀 `oc-` 出现在 60+ 个文件里（5 个样式表 266 处 `var(--oc-*)`、跨语言 wasm 契约、
+   TS 类名），改它们属于纯机械改动、零用户可见收益，还会让二进制契约与样式表同时失效，
+   收益/风险不划算。`docs/architecture.md` 里注明 `oc-` 读作 "core"，是稳定内部标识。
+
+**影响**：正向——对外名称统一（窗口标题、控制台横幅、页面 title、启动遮罩、调试层 banner、
+README、exe 文件名、文档标题全部一致）。负向——仓库里同时存在 `aphelion`（对外）与 `oc-`（对内）
+两套前缀，需要这条记录解释；若将来要发布到 crates.io / npm，再单独做一次内部重命名提交。
+`docs/master-prompt.md` 与 `docs/sci-fi-style-prompt.md` **保持原样**：它们是需求原文（规格），
+不是产品文案。
 
 ---
 

@@ -139,7 +139,7 @@ export class WebSocketTransport implements Transport {
 ## 7. 常用命令
 
 ```powershell
-node scripts/package-exe.mjs         # wasm + vite build + cargo build --release → dist-exe/ORBITAL-COMMAND-0.1.0a0.exe
+node scripts/package-exe.mjs         # wasm + vite build + cargo build --release → dist-exe/APHELION-0.1.0a0.exe
 node scripts/build-wasm.mjs          # cargo → web/public/oc.wasm（唯一 wasm 构建步骤）
 npx vite build                       # 前端产物 → dist/
 npx vite --port 5178                 # 本地开发

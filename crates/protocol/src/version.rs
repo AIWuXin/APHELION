@@ -22,5 +22,5 @@ pub const MAX_EVENTS: usize = 64;
 /// Build the protocol banner shown in the debug overlay.
 #[must_use]
 pub fn banner() -> &'static str {
-    "ORBITAL COMMAND 0.1.0a0 :: sim/proto-1"
+    "APHELION 0.1.0a0 :: sim/proto-1"
 }

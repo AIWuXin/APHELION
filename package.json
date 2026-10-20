@@ -1,9 +1,9 @@
 {
-  "name": "orbital-command",
+  "name": "aphelion",
   "private": true,
   "version": "0.1.0-a0",
   "type": "module",
-  "description": "ORBITAL COMMAND 0.1.0a0 — isometric colony builder with a Rust simulation core",
+  "description": "APHELION 0.1.0a0 — isometric colony builder with a Rust simulation core",
   "scripts": {
     "wasm": "node scripts/build-wasm.mjs",
     "dev": "npm run wasm && vite",

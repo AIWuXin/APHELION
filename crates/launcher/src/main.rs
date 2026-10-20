@@ -1,4 +1,4 @@
-﻿//! ORBITAL COMMAND — single-file desktop launcher.
+﻿//! APHELION — single-file desktop launcher.
 //!
 //! Serves the embedded web client on `127.0.0.1` and opens the user's default
 //! browser. Rationale (see `docs/decisions.md` D-09): the brief requires the
@@ -8,10 +8,10 @@
 //! no installer, while the exact same `dist/` still works when served anywhere.
 //!
 //! Usage:
-//!   orbital-command.exe              # auto port, opens the browser
-//!   orbital-command.exe --port 8137  # fixed port
-//!   orbital-command.exe --no-open    # headless / for automation
-//!   orbital-command.exe --help
+//!   aphelion.exe              # auto port, opens the browser
+//!   aphelion.exe --port 8137  # fixed port
+//!   aphelion.exe --no-open    # headless / for automation
+//!   aphelion.exe --help
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
@@ -26,9 +26,9 @@ use embedded::ASSETS;
 
 /// Shown when the binary was built without a `dist/` bundle.
 const NO_BUNDLE_HTML: &str = "<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\">\
-<title>ORBITAL COMMAND</title><body style=\"background:#05090a;color:#c9d6d6;\
+<title>APHELION</title><body style=\"background:#05090a;color:#c9d6d6;\
 font:14px 'Microsoft YaHei',sans-serif;padding:40px;line-height:1.8\">\
-<h1 style=\"color:#f0c050;font-size:18px;letter-spacing:.2em\">ORBITAL COMMAND</h1>\
+<h1 style=\"color:#f0c050;font-size:18px;letter-spacing:.2em\">APHELION</h1>\
 <p>这个可执行文件里没有前端资源。</p>\
 <p>请先构建并打包：<code style=\"color:#88d8e8\">node scripts/package-exe.mjs</code></p>\
 </body></html>";
@@ -54,7 +54,7 @@ fn parse_args() -> Result<Options, String> {
             "--no-open" => options.open_browser = false,
             "--help" | "-h" => {
                 println!(
-                    "ORBITAL COMMAND {}\n\n  orbital-command.exe [--port N] [--no-open]\n\n\
+                    "APHELION {}\n\n  aphelion.exe [--port N] [--no-open]\n\n\
                      默认自动选择空闲端口并用系统默认浏览器打开。关闭本窗口即退出。",
                     oc_protocol::PRODUCT_VERSION
                 );
@@ -90,8 +90,8 @@ fn main() -> ExitCode {
     let url = format!("http://127.0.0.1:{port}/");
 
     println!();
-    println!("  ORBITAL COMMAND {}", oc_protocol::PRODUCT_VERSION);
-    println!("  星区指挥终端 · 等距殖民地 / 轨道物流 / 舰队防御");
+    println!("  APHELION {}", oc_protocol::PRODUCT_VERSION);
+    println!("  远日点指挥终端 · 等距殖民地 / 轨道物流 / 舰队防御");
     println!();
     if ASSETS.is_empty() {
         println!("  [警告] 此二进制未内嵌前端资源（构建时缺少 dist/）");

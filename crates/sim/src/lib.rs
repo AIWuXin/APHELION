@@ -1,4 +1,4 @@
-//! Deterministic simulation core for ORBITAL COMMAND.
+//! Deterministic simulation core for APHELION.
 //!
 //! No I/O, no threads, no wall clock, no floating point in state. The same seed
 //! plus the same command sequence always produces the same state hash.

@@ -27,6 +27,8 @@ fn fixture() -> Snapshot {
             research_rate: 7,
             energy_out: 60,
             energy_in: 24,
+            coal: 37,
+            coal_rate: 20,
         },
         orbital: Orbital {
             capacity: 6,
@@ -126,6 +128,7 @@ fn fixture() -> Snapshot {
                 ty: 9,
             },
         ],
+        era: 2,
     }
 }
 
@@ -141,7 +144,8 @@ fn expected_json() -> String {
   "speed": 2,
   "resources": {
     "alloy": 420, "alloy_rate": 46, "fuel": 90, "fuel_rate": 30,
-    "research": 12, "research_rate": 7, "energy_out": 60, "energy_in": 24
+    "research": 12, "research_rate": 7, "energy_out": 60, "energy_in": 24,
+    "coal": 37, "coal_rate": 20
   },
   "orbital": {
     "capacity": 6, "used": 2,
@@ -170,7 +174,8 @@ fn expected_json() -> String {
   "events": [
     { "kind": 5, "a": 3, "b": 110, "tx": -1, "ty": -1 },
     { "kind": 8, "a": 2, "b": 0, "tx": 7, "ty": 9 }
-  ]
+  ],
+  "era": 2
 }"#
         .to_owned()
 }

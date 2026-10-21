@@ -1,10 +1,11 @@
 /**
  * Building art registry.
  *
- * The 14 painters live in three sibling modules (structures / orbital /
- * defence) so no file turns into a dumping ground. Every painter is wrapped by
- * `withStates`, which adds the shared build-site scaffold and damaged overlays,
- * so state feedback can never diverge between structure types.
+ * The 16 bespoke painters live in five sibling modules (structures / landmarks /
+ * industry / orbital / defence) so no file turns into a dumping ground. Every
+ * painter is wrapped by `withStates`, which adds the shared build-site scaffold
+ * and damaged overlays, so state feedback can never diverge between structure
+ * types.
  *
  * `BuildingKey` is generated from the Rust table: appending a building without
  * adding a painter is a TypeScript error, not a runtime surprise.
@@ -13,12 +14,16 @@
 import type { BuildingKey } from '../../generated/content-keys';
 import type { BuildingPainter } from '../sprite-contract';
 import { DEFENCE } from './buildings/defence';
+import { INDUSTRY } from './buildings/industry';
+import { LANDMARKS } from './buildings/landmarks';
 import { ORBITAL } from './buildings/orbital';
 import { STRUCTURES } from './buildings/structures';
 import { plinth, withStates } from './detail';
 
 const RAW: Readonly<Record<string, BuildingPainter>> = {
   ...STRUCTURES,
+  ...LANDMARKS,
+  ...INDUSTRY,
   ...ORBITAL,
   ...DEFENCE,
 };
@@ -46,4 +51,6 @@ export const BUILDING_PAINTERS: Readonly<Record<BuildingKey, BuildingPainter>> =
   hangar: painterOf('hangar'),
   'radar-array': painterOf('radar-array'),
   'repair-bay': painterOf('repair-bay'),
+  'coal-mine': painterOf('coal-mine'),
+  'coal-plant': painterOf('coal-plant'),
 };

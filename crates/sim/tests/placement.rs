@@ -160,6 +160,7 @@ fn demolition_frees_the_tiles_and_refunds_alloy() {
 fn tech_gates_are_enforced_by_query_place() {
     let mut world = new_world();
     world.speed = 0;
+    world.set_era(3); // relay mast and repair bay are tier 3 / tier 2
     world.res.alloy = 10_000;
     world.res.research = 10_000;
     let (tx, ty) = tile_of(&world, T_ROAD);

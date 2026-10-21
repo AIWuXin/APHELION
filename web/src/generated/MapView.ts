@@ -27,4 +27,8 @@ decor: Array<number>,
 /**
  * Mineral richness, `0` = none. Refineries must sit on a deposit.
  */
-deposit: Array<number>, };
+deposit: Array<number>, 
+/**
+ * Coal seam richness, `0` = none. Coal extractors must sit on a seam.
+ */
+coal: Array<number>, };

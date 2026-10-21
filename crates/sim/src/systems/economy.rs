@@ -1,14 +1,15 @@
-//! Economy: energy balance, extraction, fuel synthesis and research.
+//! Economy: energy balance, extraction, coal burn, fuel synthesis and research.
 //!
 //! Power is an all-or-nothing budget: when demand exceeds supply every
 //! consumer stops (that is what makes an extra solar array matter). Fuel
-//! synthesis is explicitly alloy-gated so it can never create fuel for free.
+//! synthesis is explicitly alloy-gated so it can never create fuel for free;
+//! thermal plants are coal-gated for the same reason.
 
 use oc_content::balance;
 use oc_content::buildings;
 use oc_protocol::{B_STATE_BLOCKED, B_STATE_IDLE, B_STATE_SITE, B_STATE_WORKING, EVENT_POWER};
 
-use crate::world::{World, MAX_FUEL, MAX_RESEARCH, SANDBOX_INFINITE};
+use crate::world::{World, MAX_COAL, MAX_FUEL, MAX_RESEARCH, SANDBOX_INFINITE};
 
 /// Flags reported to the HUD (`BuildingView::flags`).
 const FLAG_POWERED: u8 = 1;
@@ -25,7 +26,19 @@ fn milli_per_tick(rate: i32, dt_ms: u32) -> i32 {
 
 /// Recompute energy, production flags and stockpiles.
 pub fn update(world: &mut World, dt_ms: u32) {
-    let powered = energy_balance(world);
+    // Thermal plants burn from the coal stockpile as it stood at the start of
+    // the tick; this tick's mine output is committed afterwards. That ordering
+    // is deliberate: a cold colony has to boot on solar and mined coal before a
+    // thermal plant can take over the base load.
+    let infinite = world.sandbox(SANDBOX_INFINITE);
+    let mut coal_budget = if infinite {
+        i32::MAX
+    } else {
+        world.res.coal.max(0) * 1000 + world.res.a_coal
+    };
+    let mut coal_burn = 0;
+    let plants = plan_thermal_plants(world, &mut coal_budget, &mut coal_burn, dt_ms);
+    let powered = energy_balance(world, &plants);
 
     let materials = if world.has_tech(oc_content::techs::T_MATERIALS) {
         1000 + balance::MATERIALS_BONUS
@@ -35,21 +48,24 @@ pub fn update(world: &mut World, dt_ms: u32) {
     let mut alloy_milli = 0;
     let mut fuel_milli = 0;
     let mut research_milli = 0;
+    let mut coal_milli = 0;
     let mut rate_alloy = 0;
     let mut rate_fuel = 0;
     let mut rate_research = 0;
+    let mut rate_coal = 0;
 
     // ---- extraction and research -----------------------------------------
     // Only production buildings own their `state` here: pads, hangars and guns
     // are driven by their own systems and must not be reset to idle.
-    for b in &mut world.buildings {
+    for (i, b) in world.buildings.iter_mut().enumerate() {
         if b.state == B_STATE_SITE {
             continue;
         }
         let mut working = false;
         match b.kind {
             buildings::B_REFINERY => {
-                let richness = world.map.footprint_deposit(b.tx, b.ty, 2);
+                let size = i32::from(World::def(b.kind).footprint);
+                let richness = world.map.footprint_deposit(b.tx, b.ty, size);
                 b.aux = richness.clamp(0, i32::from(u16::MAX)) as u32;
                 if powered && richness > 0 {
                     // A richer seam means a fatter ore stream: 1000 permille
@@ -64,6 +80,32 @@ pub fn update(world: &mut World, dt_ms: u32) {
                     B_STATE_WORKING
                 } else {
                     B_STATE_IDLE
+                };
+            }
+            buildings::B_COAL_MINE => {
+                let size = i32::from(World::def(b.kind).footprint);
+                let seam = world.map.footprint_coal(b.tx, b.ty, size);
+                b.aux = seam.clamp(0, i32::from(u16::MAX)) as u32;
+                if powered && seam > 0 {
+                    // Full seam = 1000 permille; the guaranteed seam by the
+                    // colony is exactly saturated, wild seams scale down.
+                    let permille = (seam * 1000 / balance::COAL_SEAM_FULL.max(1)).min(1000);
+                    let amount = balance::COAL_MINE_PER_MIN * permille / 1000;
+                    coal_milli += milli_per_tick(amount, dt_ms);
+                    rate_coal += amount;
+                    working = true;
+                }
+                b.state = if working {
+                    B_STATE_WORKING
+                } else {
+                    B_STATE_IDLE
+                };
+            }
+            buildings::B_COAL_PLANT => {
+                b.state = if plants.get(i).copied().unwrap_or(false) {
+                    B_STATE_WORKING
+                } else {
+                    B_STATE_BLOCKED
                 };
             }
             buildings::B_LAB => {
@@ -124,6 +166,18 @@ pub fn update(world: &mut World, dt_ms: u32) {
     world.res.a_research = world.res.a_research.rem_euclid(1000);
     world.res.research = (world.res.research + research_units).clamp(0, MAX_RESEARCH);
 
+    // ---- coal: mined this tick minus what the thermal plants burned -------
+    if infinite {
+        // Sandbox coal never runs out, so the burn is not debited (the plants
+        // already counted their output in `energy_balance`).
+        world.res.coal = world.res.coal.max(balance::SANDBOX_RESOURCE_FLOOR);
+    } else {
+        world.res.a_coal += coal_milli - coal_burn;
+        let coal_units = world.res.a_coal.div_euclid(1000);
+        world.res.a_coal = world.res.a_coal.rem_euclid(1000);
+        world.res.coal = (world.res.coal + coal_units).clamp(0, MAX_COAL);
+    }
+
     if world.sandbox(SANDBOX_INFINITE) {
         world.res.alloy = world.res.alloy.max(balance::SANDBOX_RESOURCE_FLOOR);
         world.res.fuel = world.res.fuel.max(9_000);
@@ -134,13 +188,38 @@ pub fn update(world: &mut World, dt_ms: u32) {
     world.alloy_rate = rate_alloy;
     world.fuel_rate = rate_fuel;
     world.research_rate = rate_research;
+    world.coal_rate = rate_coal;
+}
+
+/// Decide which thermal plants can burn this tick.
+///
+/// One entry per building index. Burning spends from `budget` in building order
+/// (the placement order is part of the deterministic state), so two plants on a
+/// starved stockpile run the older one first instead of flipping a coin.
+fn plan_thermal_plants(world: &World, budget: &mut i32, burn: &mut i32, dt_ms: u32) -> Vec<bool> {
+    let cost = milli_per_tick(balance::COAL_BURN_PER_MIN, dt_ms);
+    let mut running = vec![false; world.buildings.len()];
+    for (i, b) in world.buildings.iter().enumerate() {
+        if b.state == B_STATE_SITE || b.kind != buildings::B_COAL_PLANT {
+            continue;
+        }
+        if *budget >= cost {
+            *budget -= cost;
+            *burn += cost;
+            running[i] = true;
+        }
+    }
+    running
 }
 
 /// Recompute energy output/demand and report the "everything powered" verdict.
-fn energy_balance(world: &mut World) -> bool {
+///
+/// Thermal plants only contribute their +40 when `plants[i]` says they got
+/// their coal this tick; a starved plant is a dead weight, not a generator.
+fn energy_balance(world: &mut World, plants: &[bool]) -> bool {
     let mut out = 0;
     let mut consumed = 0;
-    for b in &world.buildings {
+    for (i, b) in world.buildings.iter().enumerate() {
         if b.state == B_STATE_SITE {
             continue;
         }
@@ -148,6 +227,9 @@ fn energy_balance(world: &mut World) -> bool {
         let mut energy = def.energy;
         if b.kind == buildings::B_HQ && world.has_tech(oc_content::techs::T_REACTOR) {
             energy += 12;
+        }
+        if b.kind == buildings::B_COAL_PLANT && !plants.get(i).copied().unwrap_or(false) {
+            energy = 0;
         }
         if energy >= 0 {
             out += energy;
@@ -177,7 +259,7 @@ fn apply_flags(world: &mut World, powered: bool) {
         if powered {
             flags |= FLAG_POWERED;
         }
-        if map.footprint_deposit(b.tx, b.ty, size) > 0 {
+        if map.footprint_deposit(b.tx, b.ty, size) > 0 || map.footprint_coal(b.tx, b.ty, size) > 0 {
             flags |= FLAG_DEPOSIT;
         }
         if b.hp < b.hp_max {

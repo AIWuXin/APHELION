@@ -25,6 +25,8 @@ pub const REASON_LOCKED: u8 = 6;
 pub const REASON_LINK: u8 = 7;
 /// Energy budget would go negative.
 pub const REASON_POWER: u8 = 8;
+/// The building's tier is above the colony's current era.
+pub const REASON_ERA: u8 = 9;
 
 /// Packed answer to "can I place this here?".
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, TS)]

@@ -35,4 +35,12 @@ energy_out: number,
 /**
  * Consumed energy.
  */
-energy_in: number, };
+energy_in: number, 
+/**
+ * Coal stockpile (T1 thermal power fuel).
+ */
+coal: number, 
+/**
+ * Coal per minute.
+ */
+coal_rate: number, };

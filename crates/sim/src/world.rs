@@ -18,6 +18,8 @@ mod encode;
 mod placement;
 mod resources;
 
+pub use placement::SiteRule;
+
 /// Ticks of simulation per second.
 pub const TICKS_PER_SEC: u32 = 30;
 /// Simulation milliseconds per tick.
@@ -29,6 +31,8 @@ pub const MAX_ALLOY: i32 = 99_999;
 pub const MAX_FUEL: i32 = 9_999;
 /// Maximum research points.
 pub const MAX_RESEARCH: i32 = 999_999;
+/// Maximum coal.
+pub const MAX_COAL: i32 = 9_999;
 
 /// Sandbox flag: infinite resources (`Policy::sandbox_flags` bit 0).
 pub const SANDBOX_INFINITE: u16 = 1;
@@ -88,6 +92,9 @@ pub struct World {
     pub routes: [RouteState; oc_content::routes::ROUTES.len()],
     /// Researched techs, bit per tech index.
     pub techs: u32,
+    /// Current era. Buildings whose tier is above it cannot be placed; T1 is
+    /// era 1 (the mother-planet opening).
+    pub era: u8,
     /// Current wave number.
     pub wave: u16,
     /// Milliseconds until the next wave (the true clock; the snapshot only
@@ -106,6 +113,8 @@ pub struct World {
     pub fuel_rate: i32,
     /// Smoothed rates for the HUD (per minute).
     pub research_rate: i32,
+    /// Smoothed rates for the HUD (per minute).
+    pub coal_rate: i32,
     /// Cached encoded snapshot.
     snapshot_buf: Vec<u8>,
     /// Cached encoded boot blob.
@@ -136,6 +145,7 @@ impl World {
                 alloy: balance::START_ALLOY,
                 fuel: balance::START_FUEL,
                 research: balance::START_RESEARCH,
+                coal: balance::START_COAL,
                 ..Res::default()
             },
             energy_out: 0,
@@ -151,6 +161,7 @@ impl World {
             capacity: 0,
             routes: [RouteState::default(); oc_content::routes::ROUTES.len()],
             techs: 0,
+            era: 1,
             wave: 0,
             fleet_eta_ms: balance::FIRST_WAVE_S * 1000,
             wave_announced: false,
@@ -159,6 +170,7 @@ impl World {
             alloy_rate: 0,
             fuel_rate: 0,
             research_rate: 0,
+            coal_rate: 0,
             snapshot_buf: Vec::new(),
             boot_buf: Vec::new(),
             last_hash: 0,
@@ -171,13 +183,21 @@ impl World {
 
     /// Place the starting command hub plus a solar array and a refinery that
     /// actually sits on a deposit: without ore income the opening is dead.
+    ///
+    /// The hub is a 3x3 landmark, so the pair is placed by rule rather than by
+    /// fixed offsets: the solar array takes the nearest barren footprint (it
+    /// must not bury a seam or vein it can never mine) and the refinery the
+    /// nearest deposit footprint, which lands it on the guaranteed ore body
+    /// east of the hub.
     fn seed_colony(&mut self, start: (i32, i32)) {
         let (sx, sy) = start;
         let _ = self.place_now(buildings::B_HQ, sx, sy, true);
-        if let Some((x, y)) = self.find_free_site(2, sx, sy, false) {
+        let solar = i32::from(Self::def(buildings::B_SOLAR).footprint);
+        let refinery = i32::from(Self::def(buildings::B_REFINERY).footprint);
+        if let Some((x, y)) = self.find_free_site(solar, sx, sy, SiteRule::Barren) {
             let _ = self.place_now(buildings::B_SOLAR, x, y, true);
         }
-        if let Some((x, y)) = self.find_free_site(2, sx, sy, true) {
+        if let Some((x, y)) = self.find_free_site(refinery, sx, sy, SiteRule::Deposit) {
             let _ = self.place_now(buildings::B_REFINERY, x, y, true);
         }
     }
@@ -201,6 +221,13 @@ impl World {
     pub fn unit_def(kind: u8) -> &'static units::UnitRow {
         let idx = (kind as usize).min(units::UNITS.len() - 1);
         &units::UNITS[idx]
+    }
+
+    /// Set the colony era (1 = mother-planet T1). Eras below 1 are meaningless,
+    /// so they clamp to 1; the campaign script owns the progression, which is
+    /// why this is a direct world method rather than a wire command.
+    pub fn set_era(&mut self, era: u8) {
+        self.era = era.max(1);
     }
 
     /// Emit a transient effect.

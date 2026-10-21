@@ -8,11 +8,23 @@ use oc_content::buildings;
 use oc_content::terrain::terrain_buildable;
 use oc_iso::fixed::{dist2, FP};
 use oc_protocol::{
-    BuildQuery, REASON_ALLOY, REASON_BOUNDS, REASON_FUEL, REASON_LINK, REASON_LOCKED,
+    BuildQuery, REASON_ALLOY, REASON_BOUNDS, REASON_ERA, REASON_FUEL, REASON_LINK, REASON_LOCKED,
     REASON_OCCUPIED, REASON_OK, REASON_TERRAIN,
 };
 
 use super::{World, SANDBOX_INFINITE};
+
+/// What the starting colony needs under a candidate site.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SiteRule {
+    /// Any free, buildable footprint.
+    Free,
+    /// A footprint sitting on a mineral deposit (the opening refinery).
+    Deposit,
+    /// A footprint that sterilises neither ore nor coal: a solar array must not
+    /// sit on an extraction site that it can never mine.
+    Barren,
+}
 
 impl World {
     /// Can a building of this kind be placed with its anchor at `tx, ty`?
@@ -20,6 +32,7 @@ impl World {
     pub fn query_place(&self, kind: u8, tx: i32, ty: i32) -> BuildQuery {
         let def = Self::def(kind);
         let size = i32::from(def.footprint);
+        let era_ok = def.tier <= self.era;
         let mut q = BuildQuery {
             ok: false,
             affordable: self.sandbox(SANDBOX_INFINITE)
@@ -59,12 +72,22 @@ impl World {
             placement_ok = false;
             reason = REASON_LINK;
         }
+        // The coal extractor has the same rule against its own seam layer.
+        if placement_ok
+            && kind == buildings::B_COAL_MINE
+            && self.map.footprint_coal(tx, ty, size) <= 0
+        {
+            placement_ok = false;
+            reason = REASON_LINK;
+        }
         q.placement_ok = placement_ok;
-        // Tech gating is unconditional: sandbox modes may make things instant or
-        // free, but they never bypass the research tree.
-        q.ok = placement_ok && q.affordable && q.unlocked;
+        // Tech and era gating are unconditional: sandbox modes may make things
+        // instant or free, but they never bypass the research tree or the era.
+        q.ok = placement_ok && q.affordable && q.unlocked && era_ok;
         if !q.unlocked {
             q.reason = REASON_LOCKED;
+        } else if !era_ok {
+            q.reason = REASON_ERA;
         } else if !q.affordable {
             q.reason = if self.res.alloy < def.cost_alloy {
                 REASON_ALLOY
@@ -168,16 +191,16 @@ impl World {
         best
     }
 
-    /// Nearest free footprint of `size` to `(cx, cy)`, optionally requiring a
-    /// mineral deposit under it. Ties break row-major, so it is deterministic.
-    /// Used by the starting colony; players place via [`World::query_place`].
+    /// Nearest free footprint of `size` to `(cx, cy)` that also satisfies
+    /// `rule`. Ties break row-major, so it is deterministic. Used by the
+    /// starting colony; players place via [`World::query_place`].
     #[must_use]
     pub fn find_free_site(
         &self,
         size: i32,
         cx: i32,
         cy: i32,
-        need_deposit: bool,
+        rule: SiteRule,
     ) -> Option<(i32, i32)> {
         let (pcx, pcy) = (cx * FP + FP / 2, cy * FP + FP / 2);
         let mut best: Option<(u64, i32, i32)> = None;
@@ -196,7 +219,15 @@ impl World {
                         }
                     }
                 }
-                if !free || (need_deposit && self.map.footprint_deposit(tx, ty, size) <= 0) {
+                let fits = match rule {
+                    SiteRule::Free => true,
+                    SiteRule::Deposit => self.map.footprint_deposit(tx, ty, size) > 0,
+                    SiteRule::Barren => {
+                        self.map.footprint_deposit(tx, ty, size) == 0
+                            && self.map.footprint_coal(tx, ty, size) == 0
+                    }
+                };
+                if !free || !fits {
                     continue;
                 }
                 let key = (dist2(tx * FP + FP / 2, ty * FP + FP / 2, pcx, pcy), ty, tx);

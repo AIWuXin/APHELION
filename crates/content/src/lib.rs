@@ -42,8 +42,61 @@ mod tests {
         assert_eq!(c.buildings.len(), buildings::B_COUNT as usize);
         assert_eq!(c.units.len(), units::U_COUNT as usize);
         assert_eq!(c.routes.len(), routes::R_COUNT as usize);
-        assert_eq!(c.events.len(), 13);
+        assert_eq!(c.events.len(), 14);
         assert_eq!(c.techs.len(), 4);
+    }
+
+    #[test]
+    fn tiers_match_the_era_plan() {
+        let c = catalog();
+        let tier = |kind: u8| c.buildings[kind as usize].tier;
+        // T1: the whole opening kit, including the new coal pair.
+        for kind in [
+            buildings::B_HQ,
+            buildings::B_SOLAR,
+            buildings::B_REFINERY,
+            buildings::B_COAL_MINE,
+            buildings::B_COAL_PLANT,
+            buildings::B_TURRET,
+            buildings::B_BULWARK,
+        ] {
+            assert_eq!(
+                tier(kind),
+                1,
+                "{} should be tier 1",
+                c.buildings[kind as usize].key
+            );
+        }
+        // T2: chemistry, research and the anti-air layer.
+        for kind in [
+            buildings::B_FUEL,
+            buildings::B_LAB,
+            buildings::B_FLAK,
+            buildings::B_RADAR,
+            buildings::B_REPAIR,
+        ] {
+            assert_eq!(
+                tier(kind),
+                2,
+                "{} should be tier 2",
+                c.buildings[kind as usize].key
+            );
+        }
+        // T3: the space programme.
+        for kind in [
+            buildings::B_PAD,
+            buildings::B_DOCK,
+            buildings::B_RELAY,
+            buildings::B_HANGAR,
+        ] {
+            assert_eq!(
+                tier(kind),
+                3,
+                "{} should be tier 3",
+                c.buildings[kind as usize].key
+            );
+        }
+        assert_eq!(c.buildings.len(), buildings::B_COUNT as usize);
     }
 
     #[test]
@@ -59,7 +112,19 @@ mod tests {
     #[test]
     fn first_building_is_the_command_hub() {
         let c = catalog();
-        assert_eq!(c.buildings[buildings::B_HQ as usize].key, "command-hub");
-        assert_eq!(c.buildings[buildings::B_HQ as usize].footprint, 2);
+        let hub = &c.buildings[buildings::B_HQ as usize];
+        assert_eq!(hub.key, "command-hub");
+        // The hub is the colony landmark: 3x3, strictly larger than every other
+        // row, so the silhouette difference reads before any detail does.
+        assert_eq!(hub.footprint, 3);
+        for (i, row) in c.buildings.iter().enumerate() {
+            if i != buildings::B_HQ as usize {
+                assert!(
+                    row.footprint < hub.footprint,
+                    "{} rivals the command hub's footprint",
+                    row.key
+                );
+            }
+        }
     }
 }

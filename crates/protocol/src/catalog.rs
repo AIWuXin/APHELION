@@ -57,6 +57,8 @@ pub struct BuildingDef {
     pub range: u16,
     /// Maximum alloy stored, production per minute, or another role-specific cap.
     pub capacity: i32,
+    /// Era tier: placement is refused while `Snapshot::era` is below this value.
+    pub tier: u8,
 }
 
 /// One unit, interceptor or orbital craft.

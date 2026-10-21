@@ -101,6 +101,12 @@ pub static EVENTS: &[EventRow] = &[
         speaker: "COMMAND",
         tone: TONE_DANGER,
     },
+    EventRow {
+        key: "raid",
+        text_zh: "地面掠袭纵队自边缘突入，正在逼近殖民地",
+        speaker: "TACTICAL",
+        tone: TONE_DANGER,
+    },
 ];
 
 /// Convert a row to the wire definition.

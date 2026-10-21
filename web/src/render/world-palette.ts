@@ -151,6 +151,28 @@ export const DEPOSIT = {
   wash: PALETTE.primary,
 } as const;
 
+/**
+ * Coal seam paints: carbon black lumps under a cold, dusty sheen.
+ *
+ * The seam must never be mistaken for the ore vein at a glance, so it shares
+ * nothing with {@link DEPOSIT}: no saturated ink, no glow, and the darks sit
+ * below every terrain material's `lo` value.
+ */
+export const COAL = {
+  /** Lump body: darker than any terrain face in the table. */
+  lump: '#0d1112',
+  /** Shadowed root under a lump. */
+  root: '#050708',
+  /** Cold mineral sheen on the lit facet. */
+  sheen: '#5b6767',
+  /** Loose dust scattered between the lumps. */
+  dust: '#2a3132',
+  /** Boiler / hopper paint for the T1 coal pair. */
+  hull: '#313634',
+  /** Feed chute and furnace recess on the thermal plant. */
+  recess: '#1a1e1d',
+} as const;
+
 /** Light stone used for rocks, boulders and rubble. */
 export const STONE = {
   light: '#8b9290',

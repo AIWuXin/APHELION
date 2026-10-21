@@ -88,6 +88,8 @@ pub const EVENT_POWER: u8 = 10;
 pub const EVENT_SHORTAGE: u8 = 11;
 /// Victory / defeat.
 pub const EVENT_END: u8 = 12;
+/// A ground-only raid entered the map from the edge (era 1 director).
+pub const EVENT_RAID: u8 = 13;
 
 /// Every resource the top bar shows, plus the rates used for the deltas.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, TS)]
@@ -109,6 +111,10 @@ pub struct Resources {
     pub energy_out: i32,
     /// Consumed energy.
     pub energy_in: i32,
+    /// Coal stockpile (T1 thermal power fuel).
+    pub coal: i32,
+    /// Coal per minute.
+    pub coal_rate: i32,
 }
 
 /// A single orbital trade route.
@@ -341,4 +347,6 @@ pub struct Snapshot {
     pub beams: Vec<BeamView>,
     /// Events emitted this tick.
     pub events: Vec<EventView>,
+    /// Current era (1 = mother-planet T1). Building tiers above it are locked.
+    pub era: u8,
 }

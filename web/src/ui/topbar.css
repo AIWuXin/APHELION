@@ -1,6 +1,7 @@
 /* APHELION — top status bar.
-   One continuous instrument strip: status lamp, stardate clock, four resource
-   readouts with cyan per-minute deltas, a contextual hint, pause + speed. */
+   One continuous instrument strip: status lamp, stardate clock, resource
+   readouts with cyan per-minute deltas, a contextual hint, pause + speed.
+   Era-locked readouts (fuel / research in era 1) are `hidden`. */
 
 /* ---------- 3. top bar ---------- */
 .oc-topbar {
@@ -88,6 +89,12 @@
   white-space: nowrap;
 }
 
+/* The flex display above outranks the UA `[hidden]` rule, so era-locked
+   readouts would stay on screen without this reset. */
+.oc-res[hidden] {
+  display: none;
+}
+
 .oc-res__icon {
   align-self: center;
   color: var(--oc-ink-3);
@@ -125,6 +132,11 @@
 
 .oc-res--energy .oc-res__load,
 .oc-res--energy .oc-res__slash {
+  color: var(--oc-ink-2);
+}
+
+/* Coal is a bulk commodity, not an accent: steel ink, never a fifth hue. */
+.oc-res--coal .oc-res__icon {
   color: var(--oc-ink-2);
 }
 

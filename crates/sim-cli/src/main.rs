@@ -84,6 +84,7 @@ struct Summary {
     used: u16,
     alloy: i32,
     fuel: i32,
+    coal: i32,
     wave: u16,
     resolved: u32,
     loads: [u16; 3],
@@ -104,6 +105,7 @@ impl Summary {
              capacity   : {} (used {})\n\
              alloy      : {} (+{}/min)\n\
              fuel       : {}\n\
+             coal       : {} (+{}/min)\n\
              routes     : {}/{}/{}\n\
              wave       : {} (resolved {})\n\
              status     : {}\n\
@@ -116,6 +118,8 @@ impl Summary {
             self.alloy,
             world.alloy_rate,
             self.fuel,
+            self.coal,
+            world.coal_rate,
             self.loads[0],
             self.loads[1],
             self.loads[2],
@@ -129,11 +133,16 @@ impl Summary {
 
 fn run(seed: u32, ticks: u32) -> (u32, String) {
     let mut world = World::new(seed);
+    // The scripted colony predates the tier gate; it exercises every building
+    // the game has, so put the world at the last era instead of teaching the
+    // script the whole campaign progression.
+    world.set_era(4);
     let mut queue: Vec<u8> = vec![
         // Opening: power, ore, one ground gun -- then the orbital/logistics
         // chain, which is what turns the colony from a static base into an
-        // economy. Extra solar arrays are interleaved so the grid never goes
-        // into deficit as the support buildings come online.
+        // economy. The T1 coal loop follows right after: a solar array is only a
+        // trickle now, so a thermal plant takes over the base load. The extra
+        // solar arrays keep the grid afloat until the first plant is burning.
         b::B_SOLAR,
         b::B_REFINERY,
         b::B_TURRET,
@@ -141,12 +150,14 @@ fn run(seed: u32, ticks: u32) -> (u32, String) {
         b::B_DOCK,
         b::B_FUEL,
         b::B_SOLAR,
+        b::B_COAL_MINE,
+        b::B_COAL_PLANT,
         b::B_FLAK,
+        b::B_TURRET,
         b::B_HANGAR,
         b::B_SOLAR,
-        b::B_TURRET,
         b::B_REFINERY,
-        b::B_SOLAR,
+        b::B_COAL_PLANT,
         b::B_LAB,
         b::B_RADAR,
         b::B_BULWARK,
@@ -190,6 +201,7 @@ fn run(seed: u32, ticks: u32) -> (u32, String) {
         used: world.routes_used(),
         alloy: world.res.alloy,
         fuel: world.res.fuel,
+        coal: world.res.coal,
         wave: world.wave,
         resolved,
         loads: [
@@ -226,9 +238,14 @@ fn try_build(world: &mut World, queue: &mut Vec<u8>) {
 /// Nearest tile where `kind` could stand: `None` when the kind is unplaceable
 /// anywhere at all (tech-locked or footprint too large), in which case the
 /// caller drops it. Affordability is checked by the caller.
+///
+/// Most kinds are ranked by distance to the colony. A coal extractor is ranked
+/// by seam richness first: the guaranteed seam can be a few tiles further than
+/// a thin random cluster, and a starved thermal plant would brick the scripted
+/// economy for the rest of the run.
 fn find_place(world: &World, kind: u8) -> Option<(i32, i32)> {
     let size = i32::from(World::def(kind).footprint);
-    let mut best: Option<(i32, i32, i32)> = None;
+    let mut best: Option<(i64, i32, i32, i32)> = None;
     for ty in 0..=world.map.h - size {
         for tx in 0..=world.map.w - size {
             let query = world.query_place(kind, tx, ty);
@@ -237,13 +254,18 @@ fn find_place(world: &World, kind: u8) -> Option<(i32, i32)> {
             }
             let dx = tx - COLONY_X;
             let dy = ty - COLONY_Y;
-            let key = (dx * dx + dy * dy, ty, tx);
-            if best.is_none_or(|(bd, by, bx)| key < (bd, by, bx)) {
+            let rank = if kind == b::B_COAL_MINE {
+                -i64::from(world.map.footprint_coal(tx, ty, size))
+            } else {
+                0
+            };
+            let key = (rank, dx * dx + dy * dy, ty, tx);
+            if best.is_none_or(|b| key < b) {
                 best = Some(key);
             }
         }
     }
-    let (_, ty, tx) = best?;
+    let (_, _, ty, tx) = best?;
     if world.query_place(kind, tx, ty).ok {
         Some((tx, ty))
     } else {

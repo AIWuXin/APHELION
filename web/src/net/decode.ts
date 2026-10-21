@@ -38,6 +38,8 @@ export function decodeResources(r: Reader): Resources {
     research_rate: r.i32(),
     energy_out: r.i32(),
     energy_in: r.i32(),
+    coal: r.i32(),
+    coal_rate: r.i32(),
   };
 }
 
@@ -171,6 +173,7 @@ export function decodeSnapshot(bytes: ArrayBufferView): Snapshot {
   const effects = r.vec(r.len(), () => decodeEffectView(r));
   const beams = r.vec(r.len(), () => decodeBeamView(r));
   const events = r.vec(r.len(), () => decodeEventView(r));
+  const era = r.u8();
   return {
     protocol,
     tick,
@@ -186,6 +189,7 @@ export function decodeSnapshot(bytes: ArrayBufferView): Snapshot {
     effects,
     beams,
     events,
+    era,
   };
 }
 
@@ -205,6 +209,7 @@ export function decodeBuildingDef(r: Reader): BuildingDef {
     tech: r.u8(),
     range: r.u32(),
     capacity: r.i32(),
+    tier: r.u8(),
   };
 }
 
@@ -281,7 +286,10 @@ export function decodeMapView(r: Reader): MapView {
   const depositCount = r.len();
   const deposit = new Array<number>(depositCount);
   for (let i = 0; i < depositCount; i += 1) deposit[i] = r.u8();
-  return { w, h, material, height, decor, deposit };
+  const coalCount = r.len();
+  const coal = new Array<number>(coalCount);
+  for (let i = 0; i < coalCount; i += 1) coal[i] = r.u8();
+  return { w, h, material, height, decor, deposit, coal };
 }
 
 export function decodeBootBlob(bytes: ArrayBufferView): BootBlob {

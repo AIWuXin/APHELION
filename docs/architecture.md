@@ -14,7 +14,8 @@ crates/
   sim/         确定性仿真：World + systems/*（无 I/O、无 DOM、无时钟）   ← iso, content, protocol
   sim-cli/     headless 跑 3000 tick 并打印哈希（CI 的确定性守卫）        ← sim
   bridge-wasm/ 薄桥：12 个 extern "C" 函数，crate-type = cdylib          ← sim, protocol
-  launcher/   单文件 exe：build.rs 内嵌 dist/ + 最小 HTTP 服务 + 开浏览器 ← protocol
+  launcher/   单文件 exe（兼 lib）：内嵌 dist/ + 最小 HTTP 服务 + 开浏览器 ← protocol
+  desktop/    原生窗口：tao + wry/WebView2，自建 aphelion:// 协议   ← launcher, protocol（wry/tao 仅 Windows）
 web/src/
   style/       tokens.ts（唯一色板/字号/几何真源）+ inject-theme.ts
   net/         Transport 契约、postcard reader/writer、decode、encode
@@ -30,6 +31,7 @@ web/src/
 content → protocol
 sim     → iso, content, protocol
 bridge  → sim, protocol
+desktop → launcher, protocol                     （窗口壳 + 复用内嵌资源表；wry/tao 仅 Windows）
 web/net → generated, style
 web/render → style, generated, net(仅类型)      ✗ 不得 import app
 web/ui     → style, generated                   ✗ 不得 import app / net
@@ -139,7 +141,7 @@ export class WebSocketTransport implements Transport {
 ## 7. 常用命令
 
 ```powershell
-node scripts/package-exe.mjs         # wasm + vite build + cargo build --release → dist-exe/APHELION-0.1.0a0.exe
+node scripts/package-exe.mjs         # wasm + vite build + cargo build --release → dist-exe/ 两个 exe
 node scripts/build-wasm.mjs          # cargo → web/public/oc.wasm（唯一 wasm 构建步骤）
 npx vite build                       # 前端产物 → dist/
 npx vite --port 5178                 # 本地开发
@@ -148,16 +150,22 @@ node scripts/ci.mjs                  # 全套 CI（Rust + 前端 + 守卫脚本�
 node scripts/ci.mjs --web            # 只跑前端
 ```
 
+`package-exe.mjs` 产两个产物：**桌面版** `APHELION-<ver>.exe`（`crates/desktop`：tao 窗口 +
+wry/WebView2，走 `aphelion://` 自定义协议读内嵌资源，不开端口）是主产物；**浏览器版**
+`APHELION-<ver>-browser.exe`（`crates/launcher`：loopback HTTP + 默认浏览器）给缺少 WebView2
+的机器兜底。两者内嵌的是同一张 `dist/` 资源表（`oc_launcher::assets()`），画面与协议完全一致。
+
 ## 8. 入库的构建产物（CI 结构的前提）
 
-仓库里有**两样**本来可以算构建产物的文件被刻意提交了：
+仓库里有**三样**本来可以算构建产物的文件被刻意提交了：
 
 | 文件 | 为什么入库 |
 |---|---|
 | `web/src/generated/*.ts` | ts-rs 从 Rust 结构生成的协议类型。入库后前端不需要 Rust 就能 typecheck；`cargo test` 会重新生成，CI 的 rust job 用 `git diff --exit-code` 检查它是否与 Rust 声明同步。 |
 | `web/public/oc.wasm` | 85 KiB 的仿真内核。入库后 web CI job 变成纯 Node，不必在 Ubuntu 上装 Rust（那一步曾是 CI 唯一的抖动源）。 |
+| `assets/icon.ico` `assets/icon.rgba` | `scripts/gen-icon.mjs` 画出来的程序图标。前者由 `crates/desktop/build.rs` 编进资源段（连同 manifest 与 VERSIONINFO），后者在运行时给 tao 窗口；生成它需要画图代码而不是外部素材，所以入库避免每次构建都跑一遍脚本。 |
 
 所以 CI 是三个职责清晰的 job：`rust`（内核门禁）、`web`（纯 Node 表现层门禁）、
-`package`（Windows 上产出单文件 exe）。改动 `crates/sim` 或 `crates/protocol` 之后，
-本地必须跑一次 `pnpm run wasm` 与 `cargo test` 并提交上面两样产物，否则 web job 用的
+`package`（Windows 上产出桌面版 + 浏览器兜底两个 exe）。改动 `crates/sim` 或 `crates/protocol` 之后，
+本地必须跑一次 `pnpm run wasm` 与 `cargo test` 并提交重新生成的产物，否则 web job 用的
 还是旧内核。

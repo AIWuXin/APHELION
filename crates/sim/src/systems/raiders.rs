@@ -11,7 +11,7 @@ use crate::world::World;
 
 /// Every structure a raider will march on (all building kinds; the table order
 /// is the wire order, so this stays stable).
-const STRUCTURES: [u8; 14] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+const STRUCTURES: [u8; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 /// Advance every hostile ground unit.
 pub fn update(world: &mut World, dt_ms: u32) {

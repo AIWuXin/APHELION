@@ -77,9 +77,10 @@ describe('wasm map / rules agreement', () => {
       }
     }
     expect(wet).toBe(0);
-    // Only the tiles already occupied by the three seeded structures (each a 2x2
-    // footprint) may be blocked in that window.
-    expect(blocked).toBeLessThanOrEqual(14);
+    // Only the tiles already occupied by the three seeded structures (the 3x3
+    // command hub plus two 2x2 pads: 9 + 4 + 4 tiles) may be blocked in that
+    // window.
+    expect(blocked).toBeLessThanOrEqual(17);
     expect(blocked).toBeGreaterThan(0);
   });
 });

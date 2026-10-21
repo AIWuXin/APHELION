@@ -170,10 +170,21 @@ export function grating(
   }
 }
 
+/** Geometry of the poured pad {@link plinth} draws, so art never re-derives it. */
+export function padPlate(
+  cy: number,
+  size: number,
+): { readonly rx: number; readonly ry: number; readonly top: number } {
+  return {
+    rx: size * HW * 0.98 * 0.95,
+    ry: size * HH * 0.98 * 0.95,
+    top: cy - (size >= 2 ? 8 : 6),
+  };
+}
+
 /**
- * The concrete plinth every structure sits on: a dark recessed skirt, a poured
- * pad with a lit lip, corner hazard nubs and expansion joints. A large, dark
- * base is what makes a 2x2 structure read at 1x zoom.
+ * The concrete plinth every structure sits on: dark skirt, poured pad with a
+ * lit lip, corner hazard nubs and expansion joints.
  */
 export function plinth(
   ctx: CanvasRenderingContext2D,
@@ -184,14 +195,18 @@ export function plinth(
 ): void {
   const rx = size * HW * 0.98;
   const ry = size * HH * 0.98;
+  // A 2x2 structure and the 3x3 command hub share the heavy skirt; a 1x1 pad
+  // keeps the lighter one so small props still read as furniture.
+  const heavy = size >= 2;
+  const pad = padPlate(cy, size);
   contactShadow(ctx, cx, cy, rx * 1.05, ry * 1.12, 0.46);
   // Recessed skirt.
-  box(ctx, cx, cy - 1, rx, ry, size === 2 ? 7 : 5, { base: HULL.recess, rim: false, seam: false });
+  box(ctx, cx, cy - 1, rx, ry, heavy ? 7 : 5, { base: HULL.recess, rim: false, seam: false });
   // Poured pad, inset by a 1px dark reveal.
-  const padY = cy - (size === 2 ? 8 : 6);
-  box(ctx, cx, padY, rx * 0.95, ry * 0.95, 2, { base: tint, rim: true, seam: true });
+  const padY = pad.top;
+  box(ctx, cx, padY, pad.rx, pad.ry, 2, { base: tint, rim: true, seam: true });
   // Expansion joints + corner hazard nubs.
-  plateSeams(ctx, cx, padY, rx * 0.95, ry * 0.95, HULL.dark, 3);
+  plateSeams(ctx, cx, padY, pad.rx, pad.ry, HULL.dark, 3);
   const t = 0.06;
   const corners: readonly [number, number][] = [
     [t, t],
@@ -200,7 +215,7 @@ export function plinth(
     [1 - t, 1 - t],
   ];
   for (const [a, b] of corners) {
-    const p = iso(cx, padY, rx * 0.95, ry * 0.95, a, b);
+    const p = iso(cx, padY, pad.rx, pad.ry, a, b);
     ctx.fillStyle = rgba(GLOW.primary, 0.5);
     ctx.fillRect(Math.round(p[0]) - 1, Math.round(p[1]), 3, 1);
   }
@@ -208,7 +223,9 @@ export function plinth(
 
 /** Height of the construction scaffold for a 0..1000 progress value. */
 function scaffoldHeight(size: number, progress: number): number {
-  const max = size === 2 ? 64 : 40;
+  // The 3x3 command hub raises a taller frame than a 2x2 block; a 1x1 pad is a
+  // stack of crates by comparison.
+  const max = size >= 3 ? 104 : size === 2 ? 64 : 40;
   return Math.max(6, Math.round(max * Math.max(0, Math.min(1000, progress)) / 1000));
 }
 

@@ -2,8 +2,10 @@
  * 建造序列 / FABRICATOR.
  *
  * 2×2 category tabs (amber fill on the active one) over a scrolling grid of
- * build cards. The card list is rebuilt only when the category changes; per
- * frame the panel only flips the affordability / placement classes.
+ * build cards. The card list is rebuilt only when the category or the era
+ * changes; per frame the panel only flips the affordability / placement
+ * classes. Cards whose `def.tier` is above `snapshot.era` are not rendered at
+ * all -- a greyed card the kernel would refuse is noise, not information.
  *
  * This is the rail's only flexible region: it absorbs the leftover height and
  * the card grid scrolls internally (see `panels.css`).
@@ -11,6 +13,7 @@
 
 import { CATEGORY_KEYS, CATEGORY_LABELS_ZH } from '../../generated/content-keys';
 import type { BuildingDef } from '../../generated/BuildingDef';
+import { buildableKinds } from '../../content/era';
 import type { HudActions, HudView } from '../hud-api';
 import { h, setClass, setText, signed } from '../dom';
 import { seconds } from '../format';
@@ -94,18 +97,24 @@ export class FabricatorPanel {
 
   private renderCards(view: HudView): void {
     const category = this.tab;
-    const signature = `${category}:${view.boot.catalog.protocol}`;
+    const era = view.snapshot.era;
+    // The era is part of the signature: crossing into T2 must redraw the rail.
+    const signature = `${category}:${era}:${view.boot.catalog.protocol}`;
     if (signature === this.signature) return;
     this.signature = signature;
 
     const list: Entry[] = [];
-    this.defs.forEach((def, kind) => {
-      // The command hub is placed by the scenario, never built from the rail.
-      if (kind === 0 || def.category !== category) return;
-      list.push({ kind, def });
-    });
+    for (const kind of buildableKinds(this.defs, category, era)) {
+      const def = this.defs[kind];
+      if (def) list.push({ kind, def });
+    }
 
     this.cards.textContent = '';
+    // A whole category can be era-locked (orbital and support in era 1): say so
+    // instead of leaving a blank grid that reads as a rendering bug.
+    if (list.length === 0) {
+      this.cards.append(h('div', { class: 'oc-fab__empty', text: '本时代暂无此类建筑' }));
+    }
     this.cardNodes = list.map((entry) => {
       const art = h('div', { class: 'oc-card__art', html: BUILDING_ICONS[entry.kind] ?? ICON_STRUCTURE });
       const name = h('div', { class: 'oc-card__name', text: entry.def.name_zh });

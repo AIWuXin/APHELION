@@ -8,6 +8,7 @@ members = [
   "crates/sim-cli",
   "crates/bridge-wasm",
   "crates/launcher",
+  "crates/desktop",
 ]
 
 [workspace.package]

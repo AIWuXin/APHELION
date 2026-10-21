@@ -20,6 +20,8 @@ pub struct Map {
     pub decor: Vec<u8>,
     /// Mineral richness per tile.
     pub deposit: Vec<u8>,
+    /// Coal seam richness per tile.
+    pub coal: Vec<u8>,
     /// Building id occupying each tile (`0` = free).
     pub occupied: Vec<u32>,
 }
@@ -36,6 +38,7 @@ impl Map {
             height: vec![0; n],
             decor: vec![0; n],
             deposit: vec![0; n],
+            coal: vec![0; n],
             occupied: vec![0; n],
         }
     }
@@ -60,6 +63,12 @@ impl Map {
     #[must_use]
     pub fn deposit_at(&self, x: i32, y: i32) -> u8 {
         self.index(x, y).map_or(0, |i| self.deposit[i])
+    }
+
+    /// Coal seam richness at a tile.
+    #[must_use]
+    pub fn coal_at(&self, x: i32, y: i32) -> u8 {
+        self.index(x, y).map_or(0, |i| self.coal[i])
     }
 
     /// Is the tile inside the map and free of buildings?
@@ -104,6 +113,18 @@ impl Map {
         for y in ty..ty + size {
             for x in tx..tx + size {
                 total += i32::from(self.deposit_at(x, y));
+            }
+        }
+        total
+    }
+
+    /// Total coal seam richness under a footprint (extractor efficiency input).
+    #[must_use]
+    pub fn footprint_coal(&self, tx: i32, ty: i32, size: i32) -> i32 {
+        let mut total = 0;
+        for y in ty..ty + size {
+            for x in tx..tx + size {
+                total += i32::from(self.coal_at(x, y));
             }
         }
         total
@@ -286,10 +307,14 @@ pub struct Res {
     pub fuel: i32,
     /// Research points.
     pub research: i32,
+    /// Coal stockpile.
+    pub coal: i32,
     /// Alloy accumulator in milli-units.
     pub a_alloy: i32,
     /// Fuel accumulator in milli-units.
     pub a_fuel: i32,
     /// Research accumulator in milli-units.
     pub a_research: i32,
+    /// Coal accumulator in milli-units.
+    pub a_coal: i32,
 }

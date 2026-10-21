@@ -67,4 +67,8 @@ beams: Array<BeamView>,
 /**
  * Events emitted this tick.
  */
-events: Array<EventView>, };
+events: Array<EventView>, 
+/**
+ * Current era (1 = mother-planet T1). Building tiers above it are locked.
+ */
+era: number, };

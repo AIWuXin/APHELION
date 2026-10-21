@@ -25,6 +25,8 @@ pub struct MapView {
     pub decor: Vec<u8>,
     /// Mineral richness, `0` = none. Refineries must sit on a deposit.
     pub deposit: Vec<u8>,
+    /// Coal seam richness, `0` = none. Coal extractors must sit on a seam.
+    pub coal: Vec<u8>,
 }
 
 /// Everything the client needs before the first tick.

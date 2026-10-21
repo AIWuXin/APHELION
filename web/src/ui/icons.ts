@@ -51,6 +51,11 @@ export const ICON_FUEL = wrap(
   '<path d="M8 21V8h8v13z"/><path d="M8 12h8M11 8V4h2v4"/><path d="M12 15v3"/>',
 );
 
+/** Resource: coal lump with a seam facet. */
+export const ICON_COAL = wrap(
+  '<path d="M4 17l3-6 5-3 6 2 2 5-3 4H7z"/><path d="M9 11l2 3M14 12l-1 4"/>',
+);
+
 /** Resource: research flask. */
 export const ICON_RESEARCH = wrap(
   '<path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M9 3h6M8 15h8"/>',
@@ -166,6 +171,16 @@ export const ICON_B_REPAIR = wrap(
   '<path d="M3 20h18"/><path d="M5 20v-8h14v8"/><path d="M5 12V9h14v3"/><path d="M12 13v4M10 15h4"/>',
 );
 
+/** Coal extractor: bucket wheel biting into a seam, conveyor to a hopper. */
+export const ICON_B_COAL_MINE = wrap(
+  '<path d="M3 20h18"/><circle cx="8" cy="15" r="4"/><path d="M8 10.5v1M8 18.5v1M3.5 15h1M12.5 15h1"/><path d="M11 13l6-3 2 2-6 3z"/><path d="M17 10V7h3v3z"/><path d="M5 20l1-3M11 20l-1-3"/>',
+);
+
+/** Thermal plant: boiler drum under a tall stack with a smoke curl. */
+export const ICON_B_COAL_PLANT = wrap(
+  '<path d="M3 20h18"/><path d="M5 20v-6a4 4 0 0 1 8 0v6"/><path d="M5 16h8"/><path d="M16 20V7h3v13"/><path d="M16 11h3M16 15h3"/><path d="M17 4c1 1 0 2 1 3"/>',
+);
+
 /* -------------------------------------------------------------------- units */
 /* Order matches UNIT_KEYS / `UnitDef::kind`. */
 
@@ -230,6 +245,8 @@ export const BUILDING_ICONS: readonly string[] = [
   ICON_B_HANGAR,
   ICON_B_RADAR,
   ICON_B_REPAIR,
+  ICON_B_COAL_MINE,
+  ICON_B_COAL_PLANT,
 ];
 
 /** Craft art per `UNIT_KEYS` index. */

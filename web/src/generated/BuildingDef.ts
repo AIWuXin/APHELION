@@ -59,4 +59,8 @@ range: number,
 /**
  * Maximum alloy stored, production per minute, or another role-specific cap.
  */
-capacity: number, };
+capacity: number, 
+/**
+ * Era tier: placement is refused while `Snapshot::era` is below this value.
+ */
+tier: number, };

@@ -13,7 +13,8 @@ env:
 # fail the jobs that genuinely need Rust:
 #   rust    -> kernel gates (needs Rust)
 #   web     -> presentation gates (Node only; uses the committed oc.wasm)
-#   package -> single-file Windows exe (needs both, so it runs on Windows)
+#   package -> two Windows exes (desktop primary + browser fallback; needs both,
+#              so it runs on Windows)
 
 jobs:
   rust:
@@ -90,7 +91,7 @@ jobs:
           node scripts/strip-bom.mjs --check
 
   package:
-    name: package（single-file Windows exe）
+    name: package（两个 Windows exe：桌面主产物 + 浏览器兜底）
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,6 +107,11 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: pnpm install --frozen-lockfile
+      # wry/tao's build scripts (`vswhom-sys`, `embed-resource`) shell out to
+      # cl.exe and need INCLUDE/LIB. windows-latest ships the MSVC toolset, but
+      # the runner's default shell does not always have the developer
+      # environment imported, so bring it in explicitly.
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: build exe
         run: node scripts/package-exe.mjs
       - uses: actions/upload-artifact@v4

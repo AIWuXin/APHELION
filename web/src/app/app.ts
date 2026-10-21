@@ -104,6 +104,7 @@ export class App {
             send: (commands) => this.send(commands),
             canPlace: (kind, tx, ty) => this.transport.queryPlace?.(kind, tx, ty).ok ?? false,
             snapshot: () => this.store.current,
+            buildings: boot.catalog.buildings,
           });
         }
       },

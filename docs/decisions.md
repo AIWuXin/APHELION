@@ -210,6 +210,9 @@ UTF-8 代码页并设置窗口标题。`scripts/package-exe.mjs` 一条命令产
 一个 crate 而不是塞进 `bridge-wasm` 的原因。另一处代价：`dist/` 不在时 `build.rs` 会退化成
 空资源表（保证干净 checkout 也能 `cargo test`/`clippy`），此时 exe 会显示「请先打包」的页面。
 
+> 后续（D-13）：本条的产物改名 `APHELION-0.1.0a0-browser.exe` 并降为主路径的兜底，
+> `APHELION-0.1.0a0.exe` 现在是 `crates/desktop` 的原生窗口版；crate 拆成 lib + bin 供桌面端复用。
+
 ---
 
 ## N-05 · 版本号：semver `0.1.0-a0` / 展示 `0.1.0a0`
@@ -396,3 +399,88 @@ macOS / Linux 仍是 `open` / `xdg-open`。
 逻辑（`#[cfg(windows)]`）；`AppX` 形态的默认浏览器（商店版 / UWP 关联）仍走 `cmd /c start`，那种
 拓扑下同样的对话框理论上仍可能出现。`extract_exe_from_command()` 与 `resolve_exe()` 是纯函数，
 8 个单元测试覆盖 Edge / Chrome / Firefox / 无引号 / 大小写与空白 / AppX / `%VAR%` / 畸形模板。
+
+---
+
+## D-13 · 桌面主路径：wry + tao 的 WebView2 原生窗口，浏览器启动器降为兜底
+
+**改了什么**：新增 `crates/desktop`（包 `oc-desktop`，bin `aphelion-desktop`）：**tao** 0.37 建窗口、
+**wry** 0.57 挂 WebView2，页面由自定义协议 `aphelion://localhost/` 直接从 `include_bytes!` 资源表返回
+（无 HTTP 端口、无临时文件、无外部请求）。`crates/launcher` 拆成 lib + bin，桌面端复用
+`oc_launcher::{assets, find_asset, run_http_server_with_query, open_browser}`：同一张资源表喂给自定义
+协议，同一套 HTTP 服务与开浏览器逻辑做兜底。`scripts/package-exe.mjs` 改为双产物：
+`APHELION-0.1.0a0.exe`（桌面版，0.80 MiB，主产物）与 `APHELION-0.1.0a0-browser.exe`
+（D-09 的单文件启动器，0.43 MiB）。wry/tao 是 `cfg(windows)` 的 target 依赖，Linux CI 只编译 stub；
+桌面 crate 的 `build.rs` 内嵌应用清单（`asInvoker` + `PerMonitorV2` + Win10/11 + comctl32 v6）、
+VERSIONINFO 与 `assets/icon.ico`（由 `scripts/gen-icon.mjs` 生成并入库），窗口图标用
+`assets/icon.rgba`。release 构建为 GUI 子系统（`windows_subsystem = "windows"`，不闪控制台）。
+
+**为什么**：D-09 的「启动器 + 默认浏览器」在用户实测里有三个痛点，而且都不是加参数能解决的：
+
+| 痛点 | 现象 |
+|---|---|
+| SmartScreen 拦截 | 未签名 exe 从网上下载后，双击先吃「Windows 已保护你的电脑」 |
+| 权限链断裂 | built-in Administrator 账户下浏览器单例交接拒绝，弹「现有实例正在以提升的权限运行」（D-12 缓解了同一类问题，但没有根治「需要一个外部浏览器」这件事） |
+| 手输端口 | 浏览器没被拉起来时，用户必须手动复制 `http://127.0.0.1:<端口>/` |
+
+三个候选：
+
+| 方案 | 结论 |
+|---|---|
+| **wry + tao** | 就是 Tauri 的底层本身：没有 tauri-cli、没有 `tauri.conf.json`、没有脚手架与前端框架假设，`Cargo.toml` 加两个依赖即可；WebView2 已是 Windows 10/11 标配，不额外分发运行时 |
+| Tauri | 能力相同，但多一层 CLI + 配置 + 版本配对要维护；本项目只有 8 个 crate，壳层的失败面大于收益 |
+| Electron | 自带 Chromium，单产物 100 MB 起，与「零运行时依赖」的项目定位直接冲突 |
+
+**影响**：正向——双击即原生窗口，关窗即退出；没有端口、没有「浏览器没起来」的分支、没有权限对话；
+exe 带图标与版本信息，在资源管理器里可辨识。负向——Windows 上多了 wry/tao 两个第三方 crate（其
+传递依赖 `vswhom-sys` / `embed-resource` 需要 MSVC 的 `cl.exe` 与 INCLUDE/LIB，CI 里显式加了一步
+`ilammy/msvc-dev-cmd`）；产物从 0.42 MiB 涨到 0.80 MiB。
+
+**与 D-09 的关系**：D-09 否决 Tauri/Electron 的前提是「需求是浏览器里的 demo」，并把原生窗口列为
+将来的可选项。需求变更成「Windows 桌面应用」后，**原生窗口成为主路径，D-09 的结论被部分取代**；
+但 D-09 的另一半继续成立并成为这次的地基——std-only 的内嵌资源表 + 最小 HTTP 服务原样复用，
+`APHELION-0.1.0a0-browser.exe` 就是 D-09 的产物本身，也是 WebView2 缺失或窗口创建失败时的自动回退。
+D-09 结尾那句「若将来一定要原生窗口，只需替换 `crates/launcher`」正是本次做法：`dist/`、协议、
+wasm ABI 一行未改。
+
+**实测**：wry 0.57 在 Windows 上把 `aphelion://localhost/` 改写成 `http://aphelion.localhost/` 再交给
+WebView2，但自定义协议 handler 收到的仍是**原始** scheme URI，因此 handler 只看 path
+（`crates/desktop/src/protocol.rs`），导航白名单同时放行三种写法。窗口内 `oc.wasm` 实例化与渲染
+实测通过（MIME 必须是 `application/wasm`，否则 WebView2 拒绝流式实例化）。**不做代码签名**：证书
+要花钱且个人项目不必要，接受首次 SmartScreen 提示并在 README 里文档化。
+
+---
+
+## D-14 · 游戏重设计迭代1：煤资源、era/tier 双重门槛与 T1 地面掠袭
+
+**改了什么**：按「母星 T1 = 金属 + 煤」的重设计定案——`Resources` 追加 `coal/coal_rate`，
+`MapView` 追加煤层；新建筑采煤机（须拍煤层）与火电站（烧煤发电）**追加**进建筑表；光伏 18→6；
+`BuildingDef` 追加 `tier`、`World` 新增 `era`（默认 1），放置校验对 `tier > era` 返回
+`REASON_ERA`；era1 的导演不生成巡洋舰/登陆艇/破城者，改为从地图边缘确定性生成掠夺者地面小队
+（era≥2 恢复轨道空投逻辑）。火电站采用「库存门槛 → 本 tick 烧煤才发电」模型（烧煤顺序按建筑
+数组序，确定性可复现）。
+
+**为什么**：用户在实测前明确的设计阶梯（T1 金属+煤 → T2 石油 → T3 铝 → T4 钛/硅），并授权按此
+实现 T1 可玩闭环；实验室/防空/发射台等封存到后续时代，让 T1 的节奏围绕「金属与煤两条腿 + 火电
+压力」展开。时代门槛做进内核而不是只做前端隐藏，保证「命令面即规则面」。
+
+**影响**：协议布局变化（旧回放/旧哈希失效，本次哈希迁移已记录在进展档案）；`sim-cli` 脚本局
+显式 `set_era(4)` 以保留其对轨道/物流链的测试意图；era1 下前端隐藏燃料/研究位与越级建造卡，
+demo 脚本按 era 跳步。物流 C 方案（半径内自由流动）在 T1 等价于全局库存，运输队机制推迟到 T3。
+
+---
+
+## D-15 · 指挥中枢 3×3：全表唯一最大占地作为「首都地标」
+
+**改了什么**：B_HQ `footprint 2→3`；mapgen 保底矿脉移到中枢东侧、`clear_hub_footprint` 清掉中枢
+占地上的随机矿/煤、混凝土坪以中枢中心铺 10×10；起家布局改用 `SiteRule::{Free,Deposit,Barren}`
+（太阳能只落 Barren 空地）；清理了一批写死 2×2 的假设（爆炸中心、richness 缩放、HP 条高度、
+雷达投影）。画法上中枢/精炼厂移入新模块 `landmarks.ts`（共享面几何 `faces.ts`），中枢按 3×3
+画布重做为「指挥塔 + 悬挑指挥台 + 着陆坪」，精炼厂重做为「进料斗 + 铆接主罐 + 热光烟囱」。
+
+**为什么**：用户实测反馈「中枢是 3×3 的，外观重做」。中枢作为剧本唯一预置建筑，给它全表唯一的
+最大占地，既是视觉地标也是布局锚点；把尺寸假设改为读表，避免下次再踩同一类坑。
+
+**影响**：确定性哈希迁移（idle300 `0xb7d86454→0xf125ee03`）；`structures.ts` 因 400 行护栏拆分，
+地标画法独立成模块后「内容表 → 画法注册」的编译期完备性（D-04）不受影响；已知遗留——起家
+精炼厂与中枢只隔 1 格视觉偏挤、开局合金收入变快，均待人工试玩后调。

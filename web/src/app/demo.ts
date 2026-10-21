@@ -2,11 +2,18 @@
  * Attract mode / demo script.
  *
  * `?demo=1` runs a fixed opening so the title screen and the screenshot harness
- * always show a colony that is actually operating: power, ore, a launch, two
- * open trade lanes and a turret line. Everything here goes through the normal
- * `Command` path -- the demo has no privileged access to the simulation.
+ * always show a colony that is actually operating: power, ore, coal, a turret
+ * line and whatever orbital kit the era has unlocked. Everything here goes
+ * through the normal `Command` path -- the demo has no privileged access to the
+ * simulation.
+ *
+ * Steps are era-gated: the kernel refuses a tier above `snapshot.era`, so a
+ * step whose def is still locked is skipped outright instead of firing a
+ * command that can only be dropped.
  */
 
+import { eraAllows } from '../content/era';
+import type { BuildingDef } from '../generated/BuildingDef';
 import type { Command } from '../generated/Command';
 import type { Snapshot } from '../generated/Snapshot';
 
@@ -18,6 +25,8 @@ export interface DemoApi {
   readonly canPlace: (kind: number, tx: number, ty: number) => boolean;
   /** Latest snapshot, or null before boot. */
   readonly snapshot: () => Snapshot | null;
+  /** Static building table, so a step can honour its era tier. */
+  readonly buildings: readonly BuildingDef[];
 }
 
 /** Building table indices used by the script (mirrors `oc-content`). */
@@ -35,6 +44,8 @@ const K = {
   hangar: 11,
   radar: 12,
   repair: 13,
+  coalMine: 14,
+  coalPlant: 15,
 } as const;
 
 /** Find the first legal anchor near the colony for a building kind. */
@@ -63,11 +74,14 @@ interface Step {
   readonly run: (api: DemoApi) => void;
 }
 
+/** The full build order; steps above the current era are skipped at run time. */
 const ORDER: readonly (readonly [number, number])[] = [
   [K.solar, 0],
   [K.solar, 220],
   [K.turret, 380],
   [K.refinery, 520],
+  [K.coalMine, 300],
+  [K.coalPlant, 300],
   [K.fuel, 760],
   [K.dock, 980],
   [K.pad, 1100],
@@ -94,6 +108,9 @@ export function demoScript(): Step[] {
     steps.push({
       after,
       run: (api) => {
+        const snap = api.snapshot();
+        // Skipping silently is the point: a refused tier must not spam the log.
+        if (!snap || !eraAllows(api.buildings[kind], snap.era)) return;
         const spot = findSpot(api, kind);
         if (spot) api.send([{ place: { kind, tx: spot.tx, ty: spot.ty } }]);
       },
@@ -105,6 +122,7 @@ export function demoScript(): Step[] {
     run: (api) => {
       const snap = api.snapshot();
       const pads = snap?.buildings.filter((b) => b.kind === K.pad) ?? [];
+      if (pads.length === 0) return;
       api.send(pads.map((p) => ({ launch: { id: p.id } })));
     },
   });

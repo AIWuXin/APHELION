@@ -147,7 +147,8 @@ fn hq_destruction_ends_the_campaign() {
     world.buildings[index].hp = 1;
     let (cx, cy) = {
         let hq = &world.buildings[index];
-        (hq.tx * FP + FP, hq.ty * FP + FP)
+        let size = i32::from(World::def(hq.kind).footprint);
+        (hq.tx * FP + size * FP / 2, hq.ty * FP + size * FP / 2)
     };
     spawn_raider(&mut world, cx, cy);
     for _ in 0..20 {
@@ -328,6 +329,7 @@ fn radar_publishes_the_wave_eta_early() {
 #[test]
 fn orbital_warships_stop_at_the_hard_cap() {
     let mut world = new_world();
+    world.set_era(2); // orbital escorts are an era-2+ contact
     world.wave = 100; // the old formula would ask for dozens of hulls
     for _ in 0..40 {
         world.step();

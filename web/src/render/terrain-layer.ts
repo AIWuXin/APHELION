@@ -187,7 +187,12 @@ export class TerrainLayer {
     ctx.fill();
     const texture = this.textures[key];
     if (texture) texture(info);
-    if ((map.decor[index] ?? 0) === 0 && (map.deposit[index] ?? 0) === 0) paintGroundMark(info);
+    // A seam or vein owns the whole tile: no competing ground marks under it.
+    const bare =
+      (map.decor[index] ?? 0) === 0 &&
+      (map.deposit[index] ?? 0) === 0 &&
+      (map.coal[index] ?? 0) === 0;
+    if (bare) paintGroundMark(info);
     this.paintDither(ctx, info, key);
     ctx.restore();
 
@@ -273,9 +278,12 @@ export class TerrainLayer {
         if (this.keyAt(index) === SURFACE_INDEX.crystal) paintCrystalClusters(info);
         const decor = map.decor[index] ?? 0;
         const deposit = map.deposit[index] ?? 0;
+        // Coal seams share the prop pass with ore veins: same one-tile budget,
+        // opposite palette (see `decor.coalSeam`).
+        const coal = map.coal[index] ?? 0;
         const golden = rand2(tx, ty, 0xb7) > 0.74;
-        if (decor > 0) paintDecorTile(info, decor, deposit, golden);
-        else if (deposit > 0) paintDecorTile(info, 0, deposit, golden);
+        if (decor > 0) paintDecorTile(info, decor, deposit, golden, coal);
+        else if (deposit > 0 || coal > 0) paintDecorTile(info, 0, deposit, golden, coal);
       }
     }
   }

@@ -1,4 +1,8 @@
-//! Director: paces hostile waves, drops them in and tracks the threat level.
+//! Director: paces hostile waves, delivers them and tracks the threat level.
+//!
+//! Delivery depends on the era: era 1 has no air layer and no anti-air, so waves
+//! are ground raids that walk in from the map edge; era 2+ keeps the orbital
+//! drop ships (and with them siege walkers and orbital escorts).
 //!
 //! Sensor visibility contract (also documented on [`crate::world::World::visible_eta_ms`]):
 //! - with a finished radar array the next wave is announced the moment the
@@ -14,8 +18,10 @@
 
 use oc_content::balance;
 use oc_content::units;
-use oc_iso::fixed::FP;
-use oc_protocol::{EFFECT_TRAIL, EVENT_DROP, EVENT_WAVE, STATUS_RUNNING, UNIT_STATE_MOVE};
+use oc_iso::fixed::{dist2, FP};
+use oc_protocol::{
+    EFFECT_TRAIL, EVENT_DROP, EVENT_RAID, EVENT_WAVE, STATUS_RUNNING, UNIT_STATE_MOVE,
+};
 
 use crate::state::{Ship, Unit};
 use crate::systems::targeting::{speed_per_tick, step_xy};
@@ -82,18 +88,22 @@ fn spawn_wave(world: &mut World) {
     world.wave_in_flight = true;
     world.threat = 1;
 
-    // Dropships enter from a random edge and descend toward the colony centre.
+    // Era 1 has no air layer (and no anti-air), so the same troop budget walks
+    // in from the map edge; era 2+ keeps the original orbital drop.
+    if world.era >= 2 {
+        spawn_dropships(world, drops);
+    } else {
+        spawn_ground_raid(world, drops);
+    }
+}
+
+/// Drop-pod path: dropships enter from a random edge and descend toward the
+/// colony centre.
+fn spawn_dropships(world: &mut World, drops: u8) {
     let span = oc_iso::grid::MAP_W;
     for i in 0..drops {
         let roll = world.rng.director.next_u32();
-        let edge = roll % 4;
-        let t = ((roll >> 8) % span as u32) as i32;
-        let (tx, ty) = match edge {
-            0 => (t, 0),
-            1 => (span - 1, t),
-            2 => (t, span - 1),
-            _ => (0, t),
-        };
+        let (tx, ty) = edge_tile(roll, span);
         let id = world.alloc_id();
         let def = World::unit_def(units::U_DROPSHIP);
         world.ships.push(Ship {
@@ -113,6 +123,75 @@ fn spawn_wave(world: &mut World) {
     }
 }
 
+/// Ground-raid path (era 1): squads appear on deterministic edge tiles and the
+/// existing raider AI marches them on the colony.
+fn spawn_ground_raid(world: &mut World, squads: u8) {
+    let span = oc_iso::grid::MAP_W;
+    for _ in 0..squads {
+        let roll = world.rng.director.next_u32();
+        let (tx, ty) = edge_tile(roll, span);
+        world.event(
+            EVENT_RAID,
+            u32::from(balance::RAIDERS_PER_DROP),
+            0,
+            tx as i16,
+            ty as i16,
+        );
+        deploy_raiders(world, tx, ty);
+        world.effect(EFFECT_TRAIL, tx * FP, ty * FP, 200, 24, 0);
+    }
+}
+
+/// Pick an edge tile from one RNG roll (`% 4` = edge, high bits = position).
+fn edge_tile(roll: u32, span: i32) -> (i32, i32) {
+    let edge = roll % 4;
+    let t = ((roll >> 8) % span as u32) as i32;
+    match edge {
+        0 => (t, 0),
+        1 => (span - 1, t),
+        2 => (t, span - 1),
+        _ => (0, t),
+    }
+}
+
+/// Spawn one raider squad on a tile.
+///
+/// Siege walkers only exist from era 2 onwards: T1 has no answer for a 340 hp
+/// walker, so the era-1 raid is pure raiders and the wave/strength siege
+/// condition only applies once the orbital era has begun.
+fn deploy_raiders(world: &mut World, tx: i32, ty: i32) {
+    // Era 1 gates the whole siege condition: T1 has nothing that can answer a
+    // 340 hp walker, so the old wave/strength rule only applies in era 2+.
+    let siege = world.era >= 2 && (world.policy.ai_strength >= 2 || world.wave >= 3);
+    for k in 0..balance::RAIDERS_PER_DROP {
+        let kind = if k == 0 && siege {
+            units::U_SIEGE
+        } else {
+            units::U_RAIDER
+        };
+        let def = World::unit_def(kind);
+        let jitter = (world.rng.director.next_u32() % 256) as i32 - 128;
+        let id = world.alloc_id();
+        world.units.push(Unit {
+            id,
+            kind,
+            x: tx * FP + FP / 2 + jitter,
+            y: ty * FP + FP / 2 + jitter,
+            z: 0,
+            gx: 0,
+            gy: 0,
+            hp: def.hp,
+            hp_max: def.hp,
+            state: UNIT_STATE_MOVE,
+            facing: 4,
+            owner: 1,
+            target: 0,
+            cooldown: 0,
+            home: 0,
+        });
+    }
+}
+
 /// Hard cap on simultaneous orbital warships.
 ///
 /// Warships sit on the orbital layer, out of reach of every player weapon, so
@@ -122,32 +201,34 @@ fn spawn_wave(world: &mut World) {
 const MAX_WARSHIPS: usize = 8;
 
 fn update_orbital(world: &mut World, dt_ms: u32) {
-    // Orbital escorts circle the planet; they exist to be seen on the radar.
-    let hostile_ships = world
-        .ships
-        .iter()
-        .filter(|s| s.owner == 1 && s.kind == units::U_WARSHIP)
-        .count();
-    let want =
-        (usize::from(world.wave / 2) + usize::from(world.policy.ai_phase.min(2))).min(MAX_WARSHIPS);
-    if hostile_ships < want {
-        let def = World::unit_def(units::U_WARSHIP);
-        let id = world.alloc_id();
-        let angle = world.rng.director.next_u32() % 360;
-        world.ships.push(Ship {
-            id,
-            kind: units::U_WARSHIP,
-            x: FP * 22,
-            y: FP * 22,
-            z: 3200,
-            hp: def.hp,
-            hp_max: def.hp,
-            state: UNIT_STATE_MOVE,
-            phase: angle as u16,
-            owner: 1,
-            target: 0,
-            cooldown: 0,
-        });
+    // Orbital escorts are an era-2+ threat: T1 only ever faces ground raids.
+    if world.era >= 2 {
+        let hostile_ships = world
+            .ships
+            .iter()
+            .filter(|s| s.owner == 1 && s.kind == units::U_WARSHIP)
+            .count();
+        let want = (usize::from(world.wave / 2) + usize::from(world.policy.ai_phase.min(2)))
+            .min(MAX_WARSHIPS);
+        if hostile_ships < want {
+            let def = World::unit_def(units::U_WARSHIP);
+            let id = world.alloc_id();
+            let angle = world.rng.director.next_u32() % 360;
+            world.ships.push(Ship {
+                id,
+                kind: units::U_WARSHIP,
+                x: FP * 22,
+                y: FP * 22,
+                z: 3200,
+                hp: def.hp,
+                hp_max: def.hp,
+                state: UNIT_STATE_MOVE,
+                phase: angle as u16,
+                owner: 1,
+                target: 0,
+                cooldown: 0,
+            });
+        }
     }
     for s in &mut world.ships {
         if s.owner == 1 && s.kind == units::U_WARSHIP {
@@ -188,45 +269,21 @@ fn update_dropships(world: &mut World, dt_ms: u32) {
             tx as i16,
             ty as i16,
         );
-        let siege = u8::from(world.policy.ai_strength >= 2) + u8::from(world.wave >= 3);
-        for k in 0..balance::RAIDERS_PER_DROP {
-            let kind = if k == 0 && siege > 0 {
-                units::U_SIEGE
-            } else {
-                units::U_RAIDER
-            };
-            let def = World::unit_def(kind);
-            let jitter = (world.rng.director.next_u32() % 256) as i32 - 128;
-            let id = world.alloc_id();
-            world.units.push(Unit {
-                id,
-                kind,
-                x: tx * FP + FP / 2 + jitter,
-                y: ty * FP + FP / 2 + jitter,
-                z: 0,
-                gx: 0,
-                gy: 0,
-                hp: def.hp,
-                hp_max: def.hp,
-                state: UNIT_STATE_MOVE,
-                facing: 4,
-                owner: 1,
-                target: 0,
-                cooldown: 0,
-                home: 0,
-            });
-        }
+        deploy_raiders(world, tx, ty);
         world.effect(EFFECT_TRAIL, tx * FP, ty * FP, 200, 24, 0);
     }
     // Threat display: engaged while hostiles are on the ground, inbound while
     // dropships are still descending, calm once the wave is fully resolved.
+    // Era 1 has no dropships, so a ground raid reads as "inbound" until the
+    // raiders close on a structure and "engaged" from there.
     let ground = world.units.iter().any(|u| u.owner == 1 && u.hp > 0);
     let airborne = world
         .ships
         .iter()
         .any(|s| s.owner == 1 && s.hp > 0 && s.kind == units::U_DROPSHIP);
     if ground {
-        world.threat = 2;
+        let engaged = world.era >= 2 || raid_in_contact(world);
+        world.threat = if engaged { 2 } else { 1 };
     } else if airborne {
         if world.threat == 0 {
             world.threat = 1;
@@ -238,4 +295,28 @@ fn update_dropships(world: &mut World, dt_ms: u32) {
             world.finish(true);
         }
     }
+}
+
+/// Is any hostile ground unit close enough to a structure to count as engaged?
+///
+/// Era 1 reports `threat` 1 while the raid is still marching and 2 once it is
+/// in weapon reach, which is the ground-only analogue of "dropships descending"
+/// vs "raiders on the ground".
+fn raid_in_contact(world: &World) -> bool {
+    let reach = balance::RAID_CONTACT_TILES.max(1) as u64;
+    let reach2 = reach * reach;
+    for u in &world.units {
+        if u.owner != 1 || u.hp <= 0 {
+            continue;
+        }
+        for b in &world.buildings {
+            let size = i32::from(World::def(b.kind).footprint);
+            let cx = b.tx * FP + size * FP / 2;
+            let cy = b.ty * FP + size * FP / 2;
+            if dist2(u.x, u.y, cx, cy) <= reach2 {
+                return true;
+            }
+        }
+    }
+    false
 }

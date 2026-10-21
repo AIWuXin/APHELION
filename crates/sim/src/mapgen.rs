@@ -17,6 +17,16 @@ pub const START_TX: i32 = 19;
 /// Tile that the colony is centred on.
 pub const START_TY: i32 = 19;
 
+/// Footprint edge of the command hub, read from the content table.
+///
+/// The colony plot is carved around the hub -- the guaranteed ore body starts
+/// east of it and the hub's own tiles are kept barren -- so the layout must
+/// follow the table rather than keep a second hard-coded copy of the number.
+#[must_use]
+pub fn hq_size() -> i32 {
+    i32::from(oc_content::buildings::BUILDINGS[oc_content::buildings::B_HQ as usize].footprint)
+}
+
 /// Hash a lattice point.
 #[must_use]
 pub fn hash2(seed: u32, x: i32, y: i32) -> u32 {
@@ -96,6 +106,8 @@ pub fn generate(seed: u32, w: i32, h: i32) -> Generated {
     carve_roads(&mut map);
     carve_apron(&mut map, START_TX, START_TY);
     seed_deposits(seed, &mut map);
+    seed_coal_seams(seed, &mut map);
+    clear_hub_footprint(&mut map, START_TX, START_TY);
     seed_decor(seed, &mut map);
     Generated {
         map,
@@ -130,12 +142,43 @@ fn carve_colony_land(map: &mut Map, cx: i32, cy: i32) {
             }
         }
     }
-    // A guaranteed ore body under the seeded refinery (start + 3, + 3), so the
-    // opening economy is not a coin flip on whether a random cluster landed here.
+    // A guaranteed ore body east of the hub footprint (never under it), so the
+    // opening economy is not a coin flip on whether a random cluster landed
+    // here. It starts at `cx + hq_size`, i.e. the first column the 3x3 hub does
+    // not own, and is 6x6 like it was when the hub was 2x2.
+    let hq = hq_size();
     for y in cy + 1..=cy + 6 {
-        for x in cx + 1..=cx + 6 {
+        for x in cx + hq..=cx + hq + 5 {
             if let Some(i) = map.index(x, y) {
                 map.deposit[i] = map.deposit[i].max(120);
+            }
+        }
+    }
+    // A guaranteed coal seam west of the hub, deliberately offset from the ore
+    // body (x < cx vs x >= cx + hq) so the two T1 extraction sites never compete
+    // for the same footprint and both fit inside the carved landing.
+    for y in cy + 1..=cy + 6 {
+        for x in cx - 6..=cx - 1 {
+            if let Some(i) = map.index(x, y) {
+                map.coal[i] = map.coal[i].max(120);
+            }
+        }
+    }
+}
+
+/// Keep the hub's own tiles free of ore and coal.
+///
+/// The hub is scenario-placed at [`START_TX`]/[`START_TY`] and never moves, so a
+/// random cluster that happens to land under it would be permanently
+/// unmineable. The guaranteed bodies are already laid out clear of it; this only
+/// removes accidental overlap from [`seed_deposits`] and [`seed_coal_seams`].
+fn clear_hub_footprint(map: &mut Map, cx: i32, cy: i32) {
+    let hq = hq_size();
+    for y in cy..cy + hq {
+        for x in cx..cx + hq {
+            if let Some(i) = map.index(x, y) {
+                map.deposit[i] = 0;
+                map.coal[i] = 0;
             }
         }
     }
@@ -185,9 +228,15 @@ fn carve_roads(map: &mut Map) {
 
 fn carve_apron(map: &mut Map, cx: i32, cy: i32) {
     // Poured concrete under the colony core; runs after the roads so the base
-    // reads as one plate instead of a haul road cutting through it.
-    for y in cy - 3..cy + 6 {
-        for x in cx - 3..cx + 7 {
+    // reads as one plate instead of a haul road cutting through it. The plate is
+    // a 10x10 square centred on the hub footprint, so the 3x3 landmark sits on
+    // symmetric ground and the seeded solar array / refinery still land on
+    // concrete.
+    const APRON_RADIUS: i32 = 5;
+    let hub_cx = cx + hq_size() / 2;
+    let hub_cy = cy + hq_size() / 2;
+    for y in hub_cy - APRON_RADIUS..hub_cy + APRON_RADIUS {
+        for x in hub_cx - APRON_RADIUS..hub_cx + APRON_RADIUS {
             if let Some(i) = map.index(x, y) {
                 map.material[i] = T_APRON;
                 if map.height[i] < 1 {
@@ -223,6 +272,35 @@ fn seed_deposits(seed: u32, map: &mut Map) {
     }
 }
 
+fn seed_coal_seams(seed: u32, map: &mut Map) {
+    // Same cluster/falloff shape as the ore deposits, salted differently so the
+    // two layers are independent. Seams never stack on ore: one tile, one mine.
+    for k in 0..14u32 {
+        let hx = hash2(seed ^ 0xC0A1_5EED ^ k, map.w, map.h) as i32;
+        let hy = hash2(seed ^ 0x5EED_C0A1 ^ k, map.h, map.w) as i32;
+        let cx = 5 + hx.rem_euclid(map.w - 10);
+        let cy = 5 + hy.rem_euclid(map.h - 10);
+        let rich = 40 + (hash2(seed ^ 0x0C0A_1E55, cx, cy) % 90) as i32;
+        for y in cy - 1..=cy + 1 {
+            for x in cx - 1..=cx + 1 {
+                if let Some(i) = map.index(x, y) {
+                    if map.material[i] == T_BRINE || map.material[i] == T_CRYSTAL {
+                        continue;
+                    }
+                    if map.deposit[i] > 0 {
+                        continue;
+                    }
+                    let d = (x - cx).abs() + (y - cy).abs();
+                    let v = rich - d * 12;
+                    if v > 0 {
+                        map.coal[i] = map.coal[i].max(v.clamp(1, 255) as u8);
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn seed_decor(seed: u32, map: &mut Map) {
     for y in 0..map.h {
         for x in 0..map.w {
@@ -230,7 +308,7 @@ fn seed_decor(seed: u32, map: &mut Map) {
             if map.material[i] == T_ROAD || map.material[i] == T_APRON {
                 continue;
             }
-            if map.deposit[i] > 0 {
+            if map.deposit[i] > 0 || map.coal[i] > 0 {
                 continue;
             }
             let r = hash2(seed ^ 0x7777_1111, x, y) % 1000;

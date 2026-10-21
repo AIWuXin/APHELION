@@ -1,9 +1,13 @@
 /**
  * Top status bar (~34px).
  *
- * Status LED → 星历 clock → four resources with per-minute deltas → contextual
+ * Status LED → 星历 clock → resources with per-minute deltas → contextual
  * one-line hint → pause + 1×/2×/4× speed. Every value is re-derived from the
  * snapshot each update; the bar keeps no simulation state.
+ *
+ * Resource readouts are era-gated: era 1 has no fuel cell or research source,
+ * so those two would only ever read `0` and teach the player a phantom
+ * mechanic. They come back the moment the snapshot reports a later era.
  */
 
 import { BUILDING_KEYS } from '../../generated/content-keys';
@@ -12,6 +16,7 @@ import { clockText } from '../format';
 import { h, setClass, setDisabled, setHtml, setText, signed } from '../dom';
 import {
   ICON_ALLOY,
+  ICON_COAL,
   ICON_ENERGY,
   ICON_FUEL,
   ICON_PAUSE,
@@ -21,6 +26,8 @@ import {
 
 const PAD = BUILDING_KEYS.indexOf('launch-pad');
 const RADAR = BUILDING_KEYS.indexOf('radar-array');
+const COAL_MINE = BUILDING_KEYS.indexOf('coal-mine');
+const COAL_PLANT = BUILDING_KEYS.indexOf('coal-plant');
 
 /** Speeds published as `snapshot.speed` indices 1..3 (0 = paused). */
 const SPEEDS: readonly (readonly [number, string])[] = [
@@ -44,8 +51,12 @@ export class TopBar {
   private readonly energyDelta: HTMLElement;
   private readonly fuel: HTMLElement;
   private readonly fuelDelta: HTMLElement;
+  private readonly fuelItem: HTMLElement;
   private readonly research: HTMLElement;
   private readonly researchDelta: HTMLElement;
+  private readonly researchItem: HTMLElement;
+  private readonly coal: HTMLElement;
+  private readonly coalDelta: HTMLElement;
   private readonly hint: HTMLElement;
   private readonly pause: HTMLButtonElement;
   private readonly pauseIcon: HTMLElement;
@@ -81,11 +92,15 @@ export class TopBar {
 
     this.fuel = h('b', { class: 'oc-res__value', text: '0' });
     this.fuelDelta = h('span', { class: 'oc-res__delta', text: '+0' });
-    const fuel = this.resItem('燃料', ICON_FUEL, 'oc-res--fuel', [this.fuel, this.fuelDelta]);
+    this.fuelItem = this.resItem('燃料', ICON_FUEL, 'oc-res--fuel', [this.fuel, this.fuelDelta]);
+
+    this.coal = h('b', { class: 'oc-res__value', text: '0' });
+    this.coalDelta = h('span', { class: 'oc-res__delta', text: '+0' });
+    const coal = this.resItem('煤', ICON_COAL, 'oc-res--coal', [this.coal, this.coalDelta]);
 
     this.research = h('b', { class: 'oc-res__value', text: '0' });
     this.researchDelta = h('span', { class: 'oc-res__delta', text: '+0' });
-    const research = this.resItem('研究', ICON_RESEARCH, 'oc-res--research', [
+    this.researchItem = this.resItem('研究', ICON_RESEARCH, 'oc-res--research', [
       this.research,
       this.researchDelta,
     ]);
@@ -117,7 +132,13 @@ export class TopBar {
         h('span', { class: 'oc-topbar__label', text: '星历' }),
         this.clock,
       ]),
-      h('div', { class: 'oc-resbar' }, [alloy, this.energy, fuel, research]),
+      h('div', { class: 'oc-resbar' }, [
+        alloy,
+        this.energy,
+        coal,
+        this.fuelItem,
+        this.researchItem,
+      ]),
       this.hint,
       h('div', { class: 'oc-topbar__end' }, [
         this.pause,
@@ -161,6 +182,14 @@ export class TopBar {
     setText(this.fuelDelta, signed(r.fuel_rate));
     setText(this.research, String(r.research));
     setText(this.researchDelta, signed(r.research_rate));
+    setText(this.coal, String(r.coal));
+    setText(this.coalDelta, signed(r.coal_rate));
+
+    // Era 1 mines coal but cannot make fuel cells or research points yet: an
+    // always-zero readout would read as a broken counter, not as uncharted tech.
+    const t1 = s.era <= 1;
+    this.fuelItem.hidden = t1;
+    this.researchItem.hidden = t1;
 
     setText(this.hint, this.hintFor(view));
 
@@ -196,9 +225,20 @@ export class TopBar {
     const s = view.snapshot;
     if (s.status === 2) return '指挥中枢失守 · 战役结束';
     if (s.status === 3) return '全部波次清空 · 殖民地方案达成';
-    if (s.orbital.threat >= 2) return '地面交战中 · 部署拦截机与炮塔';
-    if (s.orbital.threat === 1) return '舰队接触在即 · 检查防务序列';
+    if (s.orbital.threat >= 2) {
+      return s.era <= 1 ? '地面交战中 · 补建电磁炮塔与掩体' : '地面交战中 · 部署拦截机与炮塔';
+    }
+    if (s.orbital.threat === 1) {
+      return s.era <= 1 ? '地面掠袭在即 · 检查炮塔射界' : '舰队接触在即 · 检查防务序列';
+    }
     const has = (kind: number): boolean => s.buildings.some((b) => b.kind === kind);
+    // Era 1 has no search array and no launch pad, so those two lines would nag
+    // forever; point the opening at its own loop (seam → extractor → plant).
+    if (s.era <= 1) {
+      if (!has(COAL_MINE)) return '缺少采煤机 · 需建在煤层上';
+      if (!has(COAL_PLANT)) return '建造火电站 · 补足晨昏线电力缺口';
+      return '左键 建造 · 右键 取消 · 空格 暂停 · F3 沙盒';
+    }
     if (!has(RADAR)) return '缺少搜索阵列 · 敌袭倒计时不可见';
     if (!has(PAD)) return '建造发射台才能进入轨道';
     return '左键 建造 · 右键 取消 · 空格 暂停 · F3 沙盒';

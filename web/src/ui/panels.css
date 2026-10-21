@@ -263,6 +263,19 @@
   padding: 0 5px;
 }
 
+/* Era-locked category: one muted line instead of an empty grid. */
+.oc-fab__empty {
+  grid-column: 1 / -1;
+  align-self: start;
+  display: grid;
+  place-items: center;
+  min-height: 58px;
+  border: 1px solid var(--oc-line);
+  color: var(--oc-ink-3);
+  font-size: var(--oc-fs-sm);
+  letter-spacing: 0.12em;
+}
+
 .oc-card {
   display: grid;
   grid-template-rows: minmax(22px, 1fr) 14px 13px;

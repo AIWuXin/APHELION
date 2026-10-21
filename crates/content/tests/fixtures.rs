@@ -14,6 +14,7 @@ fn synthetic_map() -> MapView {
     let mut height = Vec::with_capacity(count);
     let mut decor = Vec::with_capacity(count);
     let mut deposit = Vec::with_capacity(count);
+    let mut coal = Vec::with_capacity(count);
     for i in 0..count {
         let x = (i as u16) % W;
         let y = (i as u16) / W;
@@ -33,6 +34,14 @@ fn synthetic_map() -> MapView {
         });
         decor.push((i % 7) as u8);
         deposit.push(if i % 11 == 0 { 120 } else { 0 });
+        // Coal seams never share a tile with ore (see `mapgen::seed_coal_seams`).
+        coal.push(if i % 11 == 0 {
+            0
+        } else if i % 13 == 0 {
+            90
+        } else {
+            0
+        });
     }
     MapView {
         w: W,
@@ -41,6 +50,7 @@ fn synthetic_map() -> MapView {
         height,
         decor,
         deposit,
+        coal,
     }
 }
 

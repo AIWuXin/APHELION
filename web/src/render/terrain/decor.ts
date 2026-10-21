@@ -9,7 +9,7 @@
  */
 
 import { box, contactShadow, prism } from '../primitives';
-import { DEPOSIT, FLORA, GLOW, STONE, TERRAIN_PAINT } from '../world-palette';
+import { COAL, DEPOSIT, FLORA, GLOW, STONE, TERRAIN_PAINT } from '../world-palette';
 import { TERRAIN_KEYS } from '../../generated/content-keys';
 import { dot, isoPoint, rand01, rand2 } from './noise';
 import type { TileInfo } from './tile';
@@ -193,6 +193,72 @@ function deposit(t: TileInfo, richness: number): void {
   }
 }
 
+/**
+ * Coal seam: a soot patch of low black lumps with a cold sheen.
+ *
+ * Deliberately the opposite of {@link deposit}: no amber wash, no upright
+ * sparkle, no prism tip. Ore is bright and vertical; coal is matte, black and
+ * flat on the ground, so the two read apart even at 1x zoom.
+ */
+function coalSeam(t: TileInfo, richness: number): void {
+  const { ctx, cx, cy, rx, ry } = t;
+  // Soot: the patch under the seam is darker than the tile, never a hue wash.
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 22, 10, 0, 0, Math.PI * 2);
+  ctx.fillStyle = COAL.root;
+  ctx.fill();
+  ctx.globalAlpha = 0.12;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, 34, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Lumps sit low and wide along a broken iso diagonal. Seam richness only
+  // changes the count and the size, never the hue.
+  const dir = rand01(t.tx, t.ty, 0x6c) > 0.5 ? 1 : -1;
+  const lumps = 2 + Math.min(3, Math.round(richness / 64));
+  for (let i = 0; i < lumps; i += 1) {
+    const a = 0.2 + rand2(t.tx, t.ty, 0x1a + i * 7) * 0.58;
+    const b = 0.26 + rand2(t.tx, t.ty, 0x2a + i * 7) * 0.42;
+    const q = isoPoint(cx, cy, rx, ry, a, b + dir * (a - 0.5) * 0.22);
+    const s = 0.7 + rand2(t.tx, t.ty, 0x3a + i * 7) * 0.6;
+    const x = Math.round(q[0]);
+    const y = Math.round(q[1]);
+    // Matte on purpose: no rim, no seam, one cold 1px sheen laid by hand.
+    box(ctx, x, y, 3.4 * s, 1.9 * s, 2.6 * s, { base: COAL.lump, rim: false, seam: false });
+    ctx.fillStyle = COAL.sheen;
+    ctx.fillRect(x - Math.round(3 * s), y - Math.round(2 * s), 2, 1);
+  }
+
+  // Spilled grains between the lumps: 1px, never a tuft.
+  for (let i = 0; i < 5; i += 1) {
+    const a = 0.16 + rand2(t.tx, t.ty, 0x4b + i) * 0.68;
+    const b = 0.18 + rand2(t.tx, t.ty, 0x5b + i) * 0.64;
+    const q = isoPoint(cx, cy, rx, ry, a, b);
+    dot(ctx, q[0], q[1], i % 3 === 0 ? COAL.lump : COAL.dust);
+  }
+  // A broken black seam line under the lumps: one coal layer, not pebbles.
+  for (let i = 0; i < 7; i += 1) {
+    const a = 0.16 + i * 0.11;
+    const b = 0.5 + dir * (a - 0.5) * 0.3 + (rand2(t.tx, t.ty, 0x7d + i) - 0.5) * 0.08;
+    const q = isoPoint(cx, cy, rx, ry, a, b);
+    ctx.fillStyle = COAL.root;
+    ctx.fillRect(Math.round(q[0]), Math.round(q[1]), 2, 1);
+  }
+
+  if (richness > 110) {
+    // A saturated seam carries one chunky outcrop so it reads at map scale.
+    // No prism: its white tip glint would read as ore metal.
+    box(ctx, cx + 7, cy + 2, 6.5, 3.4, 5, { base: COAL.lump, rim: false, seam: false });
+    ctx.fillStyle = COAL.sheen;
+    ctx.fillRect(cx + 3, cy - 1, 4, 1);
+    ctx.fillStyle = COAL.dust;
+    ctx.fillRect(cx + 12, cy + 6, 5, 1);
+  }
+}
+
 /** Quiet ground marks so bare tiles are never empty. */
 export function paintGroundMark(t: TileInfo): void {
   const r = rand01(t.tx, t.ty, 0x3a1);
@@ -237,6 +303,7 @@ export function paintDecorTile(
   decor: number,
   richness: number,
   golden: boolean,
+  coal: number,
 ): void {
   const { cx, cy, tx, ty } = t;
   const variant = rand01(tx, ty, 0x8a);
@@ -270,4 +337,5 @@ export function paintDecorTile(
     crates(t, cx + (variant - 0.5) * 6, cy + 6, 2 + (extra > 0 ? 1 : 0));
   }
   if (richness > 0) deposit(t, richness);
+  if (coal > 0) coalSeam(t, coal);
 }

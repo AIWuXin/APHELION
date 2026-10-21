@@ -34,6 +34,9 @@ describe('postcard snapshot decoding', () => {
   it('reads every numeric field with the right sign', () => {
     const snapshot = decodeSnapshot(readBytes('snapshot.bin'));
     expect(snapshot.hash).toBe(3735928559);
+    expect(snapshot.era).toBe(2);
+    expect(snapshot.resources.coal).toBe(37);
+    expect(snapshot.resources.coal_rate).toBe(20);
     expect(snapshot.orbital.ships[0]?.y).toBe(-2048);
     expect(snapshot.units[0]?.x).toBe(-3072);
     expect(snapshot.events[0]?.tx).toBe(-1);
@@ -67,13 +70,27 @@ describe('boot blob', () => {
     const bytes = readBytes('boot.bin');
     const boot = decodeBootBlob(bytes);
     expect(boot.protocol).toBe(1);
-    expect(boot.catalog.buildings).toHaveLength(14);
+    expect(boot.catalog.buildings).toHaveLength(16);
     expect(boot.catalog.buildings[0]?.key).toBe('command-hub');
+    // The hub is the colony's 3x3 landmark. A 2 here means the fixture is stale:
+    // regenerate it with `cargo test -p oc-content` (emit_boot_fixture).
+    expect(boot.catalog.buildings[0]?.footprint).toBe(3);
+    expect(boot.catalog.buildings[14]?.key).toBe('coal-mine');
+    expect(boot.catalog.buildings[14]?.tier).toBe(1);
+    expect(boot.catalog.buildings[5]?.tier).toBe(3);
     expect(boot.catalog.routes).toHaveLength(3);
     expect(boot.catalog.techs).toHaveLength(4);
+    // The era-1 ground raid needs no HUD code of its own: the event log reads
+    // this row, so the row being present is the whole feature.
+    const raid = boot.catalog.events[13];
+    expect(raid?.key).toBe('raid');
+    expect(raid?.speaker).toBe('TACTICAL');
+    expect(raid?.tone).toBe(2);
+    expect(raid?.text_zh).toContain('掠袭');
     expect(boot.map.w).toBe(44);
     expect(boot.map.material).toHaveLength(44 * 44);
     expect(boot.map.height).toHaveLength(44 * 44);
+    expect(boot.map.coal).toHaveLength(44 * 44);
     // Height uses i8: brine tiles are -1, land is 0..3.
     expect(Math.min(...boot.map.height)).toBeGreaterThanOrEqual(-1);
     expect(Math.max(...boot.map.height)).toBeLessThanOrEqual(3);

@@ -128,7 +128,9 @@ export class Renderer {
         depth: (b.tx + b.ty + size) * 2,
         draw: () => {
           painter(env, anchor.x, anchor.y, b, def);
-          if (b.hp < b.hp_max) this.health(anchor.x, anchor.y - (size === 2 ? 92 : 76), b.hp, b.hp_max);
+          // Clear the silhouette, including the 3x3 hub's antenna mast.
+          const chip = size >= 3 ? 146 : size === 2 ? 92 : 76;
+          if (b.hp < b.hp_max) this.health(anchor.x, anchor.y - chip, b.hp, b.hp_max);
         },
       });
     }

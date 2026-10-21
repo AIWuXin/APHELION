@@ -7,6 +7,9 @@ pub const START_ALLOY: i32 = 420;
 pub const START_FUEL: i32 = 90;
 /// Starting research points.
 pub const START_RESEARCH: i32 = 0;
+/// Starting coal. Zero on purpose: T1 opens on solar power, and the first
+/// coal seam has to be mined before a thermal plant can carry the grid.
+pub const START_COAL: i32 = 0;
 
 /// Seconds until the first hostile wave.
 pub const FIRST_WAVE_S: u32 = 135;
@@ -19,6 +22,15 @@ pub const WAVES_TO_WIN: u16 = 5;
 
 /// Refinery alloy per minute at full power.
 pub const REFINERY_PER_MIN: i32 = 46;
+/// Coal per minute from an extractor sitting on a fully saturated seam.
+pub const COAL_MINE_PER_MIN: i32 = 20;
+/// Seam richness that counts as a fully saturated seam. Richness is the sum of
+/// `Map::coal` over the 2x2 footprint; the guaranteed seam next to the colony
+/// is 120 per tile (= 480 over four tiles), so a mine on it runs at 100% and
+/// wild seams scale linearly down from there.
+pub const COAL_SEAM_FULL: i32 = 480;
+/// Coal burned per minute by one thermal plant to make its 40 energy.
+pub const COAL_BURN_PER_MIN: i32 = 10;
 /// Fuel synth fuel cells per minute.
 pub const FUEL_PER_MIN: i32 = 30;
 /// Alloy burned by the fuel synth per minute.
@@ -90,8 +102,12 @@ pub const KILL_ALLOY_SHIP: i32 = 25;
 pub const DROPS_BASE: u8 = 2;
 /// Extra drops at fierce strength.
 pub const DROPS_FIERCE_EXTRA: u8 = 2;
-/// Ground raiders per drop pod.
+/// Ground raiders per drop pod (era 2+) or per edge squad (era 1).
 pub const RAIDERS_PER_DROP: u8 = 2;
+/// Tiles from a structure at which a ground-only raid counts as engaged
+/// (`threat` 2) instead of inbound (`threat` 1). Era 1 has no air layer, so the
+/// threat readout is driven by distance to the colony rather than by dropships.
+pub const RAID_CONTACT_TILES: i32 = 6;
 
 /// Damage multiplier permille for the ballistics tech.
 pub const BALLISTICS_BONUS: i32 = 300;

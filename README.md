@@ -6,7 +6,8 @@
 > 资源、运力、补给他们都在最远端，你只有自己的判断。
 
 等距视角的星球建造 + 太空计划 + 星际物流与舰队对抗。**Rust 仿真内核 + TypeScript 表现层**，
-在浏览器里单机运行；同时提供单文件 Windows 启动器（`dist-exe/APHELION-0.1.0a0.exe`）。
+在浏览器里单机运行；同时提供 Windows 桌面窗口版（`dist-exe/APHELION-0.1.0a0.exe`）与
+兜底的浏览器版（`dist-exe/APHELION-0.1.0a0-browser.exe`）。
 
 ```
 建造殖民地 → 通电与采掘 → 造火箭送上轨道 → 开通星际航线 → 抵御周期来袭的舰队 → 再投资
@@ -21,7 +22,8 @@
 - **确定性内核**：同 seed + 同命令序列 → 同状态哈希（CI 双跑比对，3000 tick）
 - **二进制协议**：postcard 经线性内存传输，零 JSON；类型由 `ts-rs` 从 Rust 生成，跨语言固件测试兜底
 - **零运行时依赖**：前端无框架、无位图、无 emoji、无图标字体；世界 Canvas，HUD 是 DOM
-- **一条命令出 exe**：`pnpm run package` → 0.42 MiB 单文件，内嵌全部前端资源
+- **一条命令出 exe**：`pnpm run package` → 桌面版 0.80 MiB（原生窗口）+ 0.43 MiB 浏览器兜底版，
+  两者都内嵌全部前端资源
 
 ---
 
@@ -30,21 +32,30 @@
 **方式 A：直接双击 `exe`（推荐给只想玩的人）**
 
 ```text
-dist-exe\APHELION-0.1.0a0.exe
+dist-exe\APHELION-0.1.0a0.exe            桌面版（主产物）
+dist-exe\APHELION-0.1.0a0-browser.exe    浏览器兜底版
 ```
 
-单文件、0.42 MiB，前端资源（HTML / JS / CSS / wasm）全部内嵌在二进制里。双击后它会在
-`127.0.0.1` 上选一个空闲端口启动本地服务，并用系统默认浏览器打开游戏；关闭控制台窗口即退出。
-**不需要** Node.js、不需要 WebView2、不需要安装程序。若浏览器没有自动打开、或弹出「现有实例正在
-以提升的权限运行」之类的权限提示，直接复制控制台打印的 `http://127.0.0.1:<端口>/` 地址手动访问。
+**桌面版**是首选：双击直接出现原生窗口（系统 WebView2），**不启动浏览器、不开端口**，关窗即退出。
+前端资源（HTML / JS / CSS / wasm）连同图标、manifest 与版本信息全部内嵌在 0.80 MiB 的二进制里，
+**不需要** Node.js、不需要安装程序（WebView2 是 Windows 10/11 自带的）。
 
-命令行选项：`--port 8137` 指定端口 · `--no-open` 只起服务不开浏览器 · `--help`。
+**浏览器版**（0.43 MiB）给缺少 WebView2 的老机器兜底：在 `127.0.0.1` 上选一个空闲端口启动本地服务，
+用系统默认浏览器打开游戏；关闭控制台窗口即退出。桌面版检测不到 WebView2 或窗口创建失败时，
+会自动回退到这条路径。若浏览器没有自动打开、或弹出「现有实例正在以提升的权限运行」之类的权限提示，
+直接复制控制台打印的 `http://127.0.0.1:<端口>/` 地址手动访问。
+
+命令行选项：桌面版 `--seed 42` / `--debug` / `--browser`；浏览器版 `--port 8137` / `--no-open` / `--help`。
+
+**SmartScreen 说明**：exe 没有做代码签名（签名证书要花钱，个人项目不必要），在别的机器上首次运行
+可能提示「Windows 已保护你的电脑」——点**更多信息 → 仍要运行**即可。本地自己用
+`node scripts/package-exe.mjs` 构建的 exe 没有下载标记，通常不会触发这个提示。
 
 重新打包：
 
 ```bash
 pnpm install
-pnpm run package        # wasm → vite build → cargo build --release → dist-exe/
+pnpm run package        # wasm → vite build → cargo build --release → dist-exe/（桌面版 + 浏览器版）
 ```
 
 **方式 B：从源码跑开发服务器**
@@ -116,7 +127,8 @@ crates/content  数据表                       web/src/ui      DOM HUD
 crates/protocol Command / Snapshot / 版本     web/src/net     Transport + 二进制编解码
 crates/sim      5 个系统，确定性，无 I/O       web/src/app     单向数据流编排
 crates/bridge-wasm  12 个 extern "C" 函数     web/src/generated  ts-rs + codegen 产物（禁止手写）
-crates/launcher  单文件 exe：内嵌 dist + 本地 HTTP + 开浏览器  ← 纯 std，零依赖
+crates/desktop  原生窗口：tao + wry/WebView2，aphelion:// 直读内嵌资源
+crates/launcher 浏览器兜底 exe：内嵌 dist + 本地 HTTP + 开浏览器  ← 纯 std，零依赖
 ```
 
 > 版本：Cargo/npm 用 semver `0.1.0-a0`，展示与产物文件名为 `0.1.0a0`

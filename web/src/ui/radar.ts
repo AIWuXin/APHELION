@@ -265,18 +265,22 @@ export class Radar {
     const { ctx } = this;
     const map = this.boot.map;
     const selected = view.selection.id;
-    const project = (tx: number, ty: number): readonly [number, number] => {
-      const nx = (tx + 1) / map.w - 0.5;
-      const ny = (ty + 1) / map.h - 0.5;
+    const project = (tx: number, ty: number, size = 1): readonly [number, number] => {
+      const nx = (tx + size / 2) / map.w - 0.5;
+      const ny = (ty + size / 2) / map.h - 0.5;
       return [Math.round(cx + nx * rx * 1.82), Math.round(cy + ny * ry * 1.82)];
     };
+    // Footprints differ (the 3x3 command hub next to 1x1 guns and 2x2 pads), so
+    // every blip is projected from the centre of its own footprint.
+    const at = (tx: number, ty: number, kind: number): readonly [number, number] =>
+      project(tx, ty, this.boot.catalog.buildings[kind]?.footprint ?? 1);
     const hq = view.snapshot.buildings.find((b) => b.kind === 0);
-    const home = hq ? project(hq.tx, hq.ty) : [cx, cy] as const;
+    const home = hq ? at(hq.tx, hq.ty, hq.kind) : [cx, cy] as const;
     // Colony footprint: faint amber spokes from the hub plus an amber cluster
     // of structure blips, so "where is home" reads at a glance.
     for (const b of view.snapshot.buildings) {
       if (b.kind === 0) continue;
-      const [px, py] = project(b.tx, b.ty);
+      const [px, py] = at(b.tx, b.ty, b.kind);
       ctx.strokeStyle = rgba(PALETTE.primary, 0.12);
       ctx.beginPath();
       ctx.moveTo(home[0], home[1]);
@@ -284,7 +288,7 @@ export class Radar {
       ctx.stroke();
     }
     for (const b of view.snapshot.buildings) {
-      const [px, py] = project(b.tx, b.ty);
+      const [px, py] = at(b.tx, b.ty, b.kind);
       if (b.kind === 0) {
         ctx.fillStyle = PALETTE.primary;
         ctx.fillRect(px - 2, py - 2, 5, 5);

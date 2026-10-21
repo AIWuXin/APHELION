@@ -35,6 +35,7 @@ fn anchor(probe: &World, kind: u8) -> (u16, u16) {
 fn script() -> Vec<(u32, Command)> {
     let mut probe = World::new(SEED);
     probe.speed = 0; // apply commands without advancing the simulation
+    probe.set_era(3); // the script builds the whole table, tiers included
     probe.policy.sandbox_flags = 1; // same infinite-resource flag the script sets
     let mut script: Vec<(u32, Command)> = Vec::new();
     script.push((0, Command::SetSandbox { flags: 1 }));
@@ -106,6 +107,8 @@ fn push_and_apply_bytes_produce_the_same_hash() {
     let script = script();
     let mut world_a = World::new(SEED);
     let mut world_b = World::new(SEED);
+    world_a.set_era(3);
+    world_b.set_era(3);
     let mut next = 0usize;
     for tick in 0..TICKS {
         let start = next;

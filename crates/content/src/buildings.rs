@@ -30,6 +30,9 @@ pub struct BuildingRow {
     pub range: u16,
     /// Role specific capacity.
     pub capacity: i32,
+    /// Era tier: the building may only be placed once `World::era` is at least
+    /// this value. Independent from the tech gate.
+    pub tier: u8,
 }
 
 /// Category: infrastructure.
@@ -73,8 +76,12 @@ pub const B_HANGAR: u8 = 11;
 pub const B_RADAR: u8 = 12;
 /// Repair bay.
 pub const B_REPAIR: u8 = 13;
+/// Coal extractor (T1, must sit on a coal seam).
+pub const B_COAL_MINE: u8 = 14;
+/// Thermal power plant (T1, burns coal for high output).
+pub const B_COAL_PLANT: u8 = 15;
 /// Number of building kinds.
-pub const B_COUNT: u8 = 14;
+pub const B_COUNT: u8 = 16;
 
 /// The table.
 pub static BUILDINGS: &[BuildingRow] = &[
@@ -86,13 +93,14 @@ pub static BUILDINGS: &[BuildingRow] = &[
         cost_alloy: 0,
         cost_fuel: 0,
         energy: 42,
-        footprint: 2,
+        footprint: 3,
         build_ms: 0,
         category: CAT_BUILD,
         hp: 1400,
         tech: NO_TECH,
         range: 0,
         capacity: 0,
+        tier: 1,
     },
     BuildingRow {
         key: "solar-array",
@@ -101,7 +109,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         desc: "低维护电力，晨昏线附近效率衰减",
         cost_alloy: 60,
         cost_fuel: 0,
-        energy: 18,
+        energy: 6,
         footprint: 2,
         build_ms: 6000,
         category: CAT_BUILD,
@@ -109,6 +117,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 0,
         capacity: 0,
+        tier: 1,
     },
     BuildingRow {
         key: "refinery",
@@ -125,6 +134,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 0,
         capacity: 46,
+        tier: 1,
     },
     BuildingRow {
         key: "fuel-synth",
@@ -141,6 +151,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 0,
         capacity: 30,
+        tier: 2,
     },
     BuildingRow {
         key: "research-lab",
@@ -157,6 +168,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 0,
         capacity: 7,
+        tier: 2,
     },
     BuildingRow {
         key: "launch-pad",
@@ -173,6 +185,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 0,
         capacity: 0,
+        tier: 3,
     },
     BuildingRow {
         key: "freight-dock",
@@ -189,6 +202,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 9,
         capacity: 160,
+        tier: 3,
     },
     BuildingRow {
         key: "relay-mast",
@@ -205,6 +219,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: 2,
         range: 0,
         capacity: 2,
+        tier: 3,
     },
     BuildingRow {
         key: "rail-turret",
@@ -221,6 +236,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 7,
         capacity: 0,
+        tier: 1,
     },
     BuildingRow {
         key: "flak-battery",
@@ -237,6 +253,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 9,
         capacity: 0,
+        tier: 2,
     },
     BuildingRow {
         key: "bulwark",
@@ -253,6 +270,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 0,
         capacity: 0,
+        tier: 1,
     },
     BuildingRow {
         key: "hangar",
@@ -269,6 +287,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 0,
         capacity: 0,
+        tier: 3,
     },
     BuildingRow {
         key: "radar-array",
@@ -285,6 +304,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: NO_TECH,
         range: 14,
         capacity: 0,
+        tier: 2,
     },
     BuildingRow {
         key: "repair-bay",
@@ -301,6 +321,41 @@ pub static BUILDINGS: &[BuildingRow] = &[
         tech: 1,
         range: 4,
         capacity: 0,
+        tier: 2,
+    },
+    BuildingRow {
+        key: "coal-mine",
+        zh: "采煤机",
+        en: "COAL EXTRACTOR",
+        desc: "必须建在煤层上，产出煤炭",
+        cost_alloy: 85,
+        cost_fuel: 0,
+        energy: -6,
+        footprint: 2,
+        build_ms: 7000,
+        category: CAT_BUILD,
+        hp: 220,
+        tech: NO_TECH,
+        range: 0,
+        capacity: 20,
+        tier: 1,
+    },
+    BuildingRow {
+        key: "coal-plant",
+        zh: "火电站",
+        en: "THERMAL PLANT",
+        desc: "持续燃烧煤炭，输出高功率电力",
+        cost_alloy: 110,
+        cost_fuel: 0,
+        energy: 40,
+        footprint: 2,
+        build_ms: 8000,
+        category: CAT_BUILD,
+        hp: 260,
+        tech: NO_TECH,
+        range: 0,
+        capacity: 10,
+        tier: 1,
     },
 ];
 
@@ -322,5 +377,6 @@ pub fn to_def(r: &BuildingRow) -> oc_protocol::BuildingDef {
         tech: r.tech,
         range: r.range,
         capacity: r.capacity,
+        tier: r.tier,
     }
 }

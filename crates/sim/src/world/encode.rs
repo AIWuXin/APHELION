@@ -59,6 +59,8 @@ impl World {
                 research_rate: self.research_rate,
                 energy_out: self.energy_out,
                 energy_in: self.energy_in,
+                coal: self.res.coal,
+                coal_rate: self.coal_rate,
             },
             orbital: Orbital {
                 capacity: self.orbital_capacity(),
@@ -170,6 +172,7 @@ impl World {
                     ty: e.ty,
                 })
                 .collect(),
+            era: self.era,
         }
     }
 
@@ -199,6 +202,7 @@ impl World {
                 height: self.map.height.clone(),
                 decor: self.map.decor.clone(),
                 deposit: self.map.deposit.clone(),
+                coal: self.map.coal.clone(),
             },
         };
         self.boot_buf = postcard::to_allocvec(&boot).unwrap_or_default();

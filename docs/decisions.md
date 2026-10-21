@@ -370,3 +370,29 @@ exe 必须在 Windows 上构建（否则拿到的是 Linux 二进制），所以
 负向——行为门禁只覆盖 `oc_init → oc_step × N → oc_state_hash` 这一条路径（导出表与渲染行为由
 web job 的 `wasm-map.test.ts` 覆盖）；`oc_state_hash` 是新增 ABI（原有 `oc_hash` 保留并委托给它），
 用缺少该导出的旧 wasm 跑脚本会明确报错并提示重建，而不是静默通过。
+
+---
+
+## D-12 · 开浏览器：解析默认浏览器 exe 后直接 spawn，`cmd /c start` 降为回退
+
+**改了什么**：新增 `crates/launcher/src/browser.rs`（仍是 std-only，零第三方依赖）：读
+`HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice` 的 `ProgId`，
+再到 `HKCR\<ProgId>\shell\open\command` 取命令行模板，由纯函数 `extract_exe_from_command()`
+取出 exe 路径（处理带引号路径；无引号时截到 `.exe`；`AppX…` ProgId 与含 `%VAR%` 的路径判定为
+不可直接 spawn），然后 `Command::new(exe).arg(url).spawn()` 直接启动。注册表用
+`extern "C"` 直调 `advapi32`（`RegOpenKeyExW` / `RegQueryValueExW` / `RegCloseKey`，两次调用
+取长度），不引入 `winreg`。`main.rs` 的 `open_browser()` 变成回退链：直接 spawn → 旧路径
+`cmd /c start "" <url>`（保留 `CREATE_NO_WINDOW`）→ 才打印手动访问提示；两条路径都成功时保持安静。
+macOS / Linux 仍是 `open` / `xdg-open`。
+
+**为什么**：用 built-in Administrator 双击 exe 时，`cmd /c start` 把 URL 交给 shell，再由 shell
+的 broker 转发给浏览器，这次请求的完整性级别与**已以管理员权限运行的 Edge 实例**不一致，Edge 的
+单例交接于是拒绝，弹出「现有实例正在以提升的权限运行，是否用普通权限重启」的对话框（用户实测）。
+改成直接 spawn 后，浏览器进程**继承启动器的完整性级别**：提升的启动器起提升的浏览器子进程，与既有
+实例同级，单例交接不再需要提权对话。
+
+**影响**：正向——管理员（以及将来的非管理员）双击后浏览器正常打开，权限对话框不再出现；解析只读
+注册表、无副作用，任何失败都安静回退到旧路径，行为不会比旧实现更差。负向——这段是 Windows 专有
+逻辑（`#[cfg(windows)]`）；`AppX` 形态的默认浏览器（商店版 / UWP 关联）仍走 `cmd /c start`，那种
+拓扑下同样的对话框理论上仍可能出现。`extract_exe_from_command()` 与 `resolve_exe()` 是纯函数，
+8 个单元测试覆盖 Edge / Chrome / Firefox / 无引号 / 大小写与空白 / AppX / `%VAR%` / 畸形模板。

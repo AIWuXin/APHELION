@@ -3,9 +3,10 @@
 //! Serves the embedded web client on `127.0.0.1` and opens the user's default
 //! browser. Rationale (see `docs/decisions.md` D-09): the brief requires the
 //! game to run in a browser, and the HUD's 1px borders and CJK text must be laid
-//! out by a real browser engine. Wrapping that in a std-only HTTP server plus
-//! `ShellExecute` gives a double-clickable `exe` with no WebView2, no Node.js and
-//! no installer, while the exact same `dist/` still works when served anywhere.
+//! out by a real browser engine. Wrapping that in a std-only HTTP server plus a
+//! direct spawn of the default browser gives a double-clickable `exe` with no
+//! WebView2, no Node.js and no installer, while the exact same `dist/` still
+//! works when served anywhere.
 //!
 //! Usage:
 //!   aphelion.exe              # auto port, opens the browser
@@ -17,6 +18,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::process::ExitCode;
 
+// Windows-only in production; `test` keeps the pure template parser testable
+// on every platform.
+#[cfg(any(windows, test))]
+mod browser;
 mod console;
 mod embedded {
     include!(concat!(env!("OUT_DIR"), "/assets.rs"));
@@ -214,19 +219,30 @@ fn respond(
 }
 
 /// Open the URL in the system default browser.
+///
+/// Preferred path: spawn the browser executable resolved from the registry, so
+/// the child inherits this process' integrity level and the hand-off to an
+/// already running, equally elevated browser instance stays silent. Fallback:
+/// the old shell path `cmd /c start "" <url>`.
 fn open_browser(url: &str) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         // CREATE_NO_WINDOW: do not flash a console for the `cmd /c start` shim.
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let spawned = std::process::Command::new("cmd")
-            .args(["/c", "start", "", url])
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn();
-        if spawned.is_err() {
+
+        let mut opened = browser::spawn_default_browser(url);
+        if !opened {
+            opened = std::process::Command::new("cmd")
+                .args(["/c", "start", "", url])
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+                .is_ok();
+        }
+        if !opened {
             eprintln!("  无法自动打开浏览器，请手动访问：{url}");
         }
+        println!("  若浏览器未自动打开或提示权限问题，请手动复制上述地址访问。");
     }
     #[cfg(target_os = "macos")]
     {

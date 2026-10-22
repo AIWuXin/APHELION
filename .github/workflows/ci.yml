@@ -22,8 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # The @stable action ref defaults to the stable toolchain and ignores
+      # rust-toolchain.toml; name the pin explicitly so CI == local rustc.
+      # Bump here and in rust-toolchain.toml together.
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.96.0"
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
@@ -104,6 +108,7 @@ jobs:
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.96.0"
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: pnpm install --frozen-lockfile

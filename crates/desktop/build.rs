@@ -19,10 +19,12 @@ fn main() {
     // (`2026-10-22 11:20`, local time, minute precision). The window title and,
     // via `vite.config.ts`, the in-game status bar show it, so a stale
     // executable can be told apart from a fresh one at a glance.
-    let (stamp, zone) = local_stamp();
+    // `zone` is only consumed by the Windows resource block; the underscore
+    // keeps `-D warnings` happy when this script compiles on other hosts.
+    let (stamp, _zone) = local_stamp();
     println!("cargo:rustc-env=OC_BUILD_STAMP={stamp}");
     #[cfg(windows)]
-    windows_resources(&stamp, zone);
+    windows_resources(&stamp, _zone);
 }
 
 /// Current local time as `YYYY-MM-DD HH:MM`, falling back to UTC when the host

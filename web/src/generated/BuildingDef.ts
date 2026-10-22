@@ -33,7 +33,7 @@ cost_fuel: number,
  */
 energy: number, 
 /**
- * Footprint edge length in tiles (1 or 2).
+ * Footprint edge length in tiles (`1..=3`; the command hub is 3).
  */
 footprint: number, 
 /**

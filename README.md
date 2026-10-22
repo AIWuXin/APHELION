@@ -22,7 +22,7 @@
 - **确定性内核**：同 seed + 同命令序列 → 同状态哈希（CI 双跑比对，3000 tick）
 - **二进制协议**：postcard 经线性内存传输，零 JSON；类型由 `ts-rs` 从 Rust 生成，跨语言固件测试兜底
 - **零运行时依赖**：前端无框架、无位图、无 emoji、无图标字体；世界 Canvas，HUD 是 DOM
-- **一条命令出 exe**：`pnpm run package` → 桌面版 0.80 MiB（原生窗口）+ 0.43 MiB 浏览器兜底版，
+- **一条命令出 exe**：`pnpm run package` → 桌面版 0.87 MiB（原生窗口）+ 0.49 MiB 浏览器兜底版，
   两者都内嵌全部前端资源
 
 ---
@@ -37,10 +37,10 @@ dist-exe\APHELION-0.1.0a1-browser.exe    浏览器兜底版
 ```
 
 **桌面版**是首选：双击直接出现原生窗口（系统 WebView2），**不启动浏览器、不开端口**，关窗即退出。
-前端资源（HTML / JS / CSS / wasm）连同图标、manifest 与版本信息全部内嵌在 0.80 MiB 的二进制里，
+前端资源（HTML / JS / CSS / wasm）连同图标、manifest 与版本信息全部内嵌在 0.87 MiB 的二进制里，
 **不需要** Node.js、不需要安装程序（WebView2 是 Windows 10/11 自带的）。
 
-**浏览器版**（0.43 MiB）给缺少 WebView2 的老机器兜底：在 `127.0.0.1` 上选一个空闲端口启动本地服务，
+**浏览器版**（0.49 MiB）给缺少 WebView2 的老机器兜底：在 `127.0.0.1` 上选一个空闲端口启动本地服务，
 用系统默认浏览器打开游戏；关闭控制台窗口即退出。桌面版检测不到 WebView2 或窗口创建失败时，
 会自动回退到这条路径。若浏览器没有自动打开、或弹出「现有实例正在以提升的权限运行」之类的权限提示，
 直接复制控制台打印的 `http://127.0.0.1:<端口>/` 地址手动访问。
@@ -125,8 +125,8 @@ Rust  (全部规则与仿真)                      TypeScript (全部表现)
 crates/iso      纯数学/定点/RNG              web/src/render  Canvas 世界层
 crates/content  数据表                       web/src/ui      DOM HUD
 crates/protocol Command / Snapshot / 版本     web/src/net     Transport + 二进制编解码
-crates/sim      5 个系统，确定性，无 I/O       web/src/app     单向数据流编排
-crates/bridge-wasm  12 个 extern "C" 函数     web/src/generated  ts-rs + codegen 产物（禁止手写）
+crates/sim      6 个系统，确定性，无 I/O       web/src/app     单向数据流编排
+crates/bridge-wasm  18 个 extern "C" 函数     web/src/generated  ts-rs + codegen 产物（禁止手写）
 crates/desktop  原生窗口：tao + wry/WebView2，aphelion:// 直读内嵌资源
 crates/launcher 浏览器兜底 exe：内嵌 dist + 本地 HTTP + 开浏览器  ← 纯 std，零依赖
 ```
@@ -171,9 +171,9 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 
 | # | 不变量 | 落地位置 | 自检 |
 |---|---|---|---|
-| 1 | 2:1 等距正交、固定机位、体积物由基本体拼成 | `render/iso.ts` 固定 64×32；`render/primitives.ts` 只提供 box / cylinder / dome / prism | ✅ 无透视、无缩放、无旋转；所有资产由四种基本体组合 |
+| 1 | 2:1 等距正交、体块由基本体拼成 | `render/iso.ts` 固定 64×32；`render/primitives.ts` 只提供 box / cylinder / dome / prism | ✅ 无透视、无旋转；平移与 0.75×–2.5× 缩放只动取景框，不改变投影（N-06） |
 | 2 | 统一左上光；三面 1.0/0.86/0.68 + 1px 亮棱暗棱；短柔阴影偏右下 | `tokens.ts LIGHT`；`primitives.ts` 的 `box/cylinder/dome/prism/contactShadow` | ✅ 单一只 `LIGHT` 常量，无第二套明暗；阴影恒偏右下（左右归属的裁决见 decisions C-01） |
-| 3 | 硬边拼花表面：底色 + 低频噪声 + 细 dither + 1px 暗缝；材质硬边相接 | `render/terrain-layer.ts` 各材质 painter | ✅ 8 种材质各自的纹理语言；边界仅用 5 点 dither，无大面积渐变 |
+| 3 | 硬边拼花表面：底色 + 低频噪声 + 细 dither + 1px 暗缝；材质硬边相接 | `render/terrain/` 各材质 painter（`materials-a/b/c.ts`） | ✅ 15 种材质各自的纹理语言；边界仅用 5 点 dither，无大面积渐变 |
 | 4 | HUD 哑光近黑钢板 + 1px 冷钢描边 + 直角；禁玻璃/模糊/泛光/大圆角 | `ui/hud.css` | ✅ 无 `backdrop-filter`、无 `filter: blur`、无 `box-shadow` 光晕；`border-radius: 0` |
 | 5 | 压深黑位 + 低饱和；只有主强调/功能/状态三色，危险色仅警报与敌方 | `tokens.ts PALETTE` 唯一色源 | ✅ 全部强调色从 PALETTE 取；`--oc-danger` 只出现在警报与敌方资产 |
 | 6 | 中文为主体（700），英文宽字距小号；数字等宽；三档字号；1px 分隔线 | `ui/hud.css` + `ui/*.ts` | ✅ 10/12/14 + 26 显示位；`.oc-num` 系列 `tabular-nums`；分隔线全为 1px |
@@ -189,7 +189,7 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 | 新增建筑只改两处 | ✅ content 表 + 渲染注册，缺一即编译错误 |
 | clippy / tsc 零警告 | ✅ `cargo clippy --all-targets -- -D warnings`、`tsc --noEmit` |
 | 同 seed 状态哈希一致 | ✅ `oc-sim-cli` 双跑比对 + `crates/sim/tests/determinism.rs` |
-| 60fps / 30Hz | ✅ 地形一次性烘焙、精灵不逐帧重建、HUD 脏检查；`?debug=1` 可观测 |
+| 60fps / 30Hz | ✅ 区块流送 + 逐帧烘焙预算（4ms/帧）、精灵不逐帧重建、HUD 脏检查；`?debug=1` 可观测 |
 | 无位图请求 | ✅ 仅 `oc.wasm` 一个二进制请求 |
 | 中文无乱码 | ✅ UTF-8 + 系统黑体栈 |
 | 1280 / 1920 不破版 | ✅ 右栏 300/336px 两档，建造卡恒 2 列 |
@@ -204,9 +204,9 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 - 偏离：N-02（字体用系统栈，不打包思源黑体）——理由见 decisions。
 - 创意点：**内容 key 由 Rust codegen 成 TS 联合类型**，让「只改两处」与「编译期完备」同时成立。
 
-**P1 仿真五系统 + 确定性**
+**P1 仿真六系统 + 确定性**
 - 守住：确定性（整数状态、固定步长、多流域 RNG）、协议一律二进制、新增字段自动进入哈希。
-- 偏离：N-01（地图改为 44×44 且可平移）——44×44 才能容纳「建造→发射→防御」纵深。
+- 偏离：N-01（地图可平移；a1 起扩为 10240×10240 环面，镜头无边界钳制）——越大的世界越需要取景自由。
 - 创意点：**哈希即编码**（对 hash=0 的整帧编码后做 FNV），新增字段无需维护哈希清单。
 
 **P2 表现层（Canvas + DOM HUD）**
@@ -228,7 +228,7 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 
 - 单机 demo：`crates/server` 与 `WebSocketTransport` 只预留了契约（P4 可选，未实现）。
 - AI 只有「跃迁波次导演」，没有真正的对手建造 AI；难度由波次编制与间隔表达。
-- 科技树 4 项、建筑 14 种、单位 7 种：够走完闭环，不是完整商业体量。
+- 科技树 4 项、建筑 16 种、单位 7 种：够走完闭环，不是完整商业体量。
 - 跨平台字形宽度差异（N-02）：中文字距在 Windows/macOS 上略有不同，已用 px 字号与字距约束住。
 
 ---

@@ -103,7 +103,7 @@ pub static EVENTS: &[EventRow] = &[
     },
     EventRow {
         key: "raid",
-        text_zh: "地面掠袭纵队自边缘突入，正在逼近殖民地",
+        text_zh: "地面掠袭纵队在殖民地外围环带集结，正在逼近",
         speaker: "TACTICAL",
         tone: TONE_DANGER,
     },

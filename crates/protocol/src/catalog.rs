@@ -43,7 +43,7 @@ pub struct BuildingDef {
     pub cost_fuel: i32,
     /// Net energy contribution (negative consumes).
     pub energy: i32,
-    /// Footprint edge length in tiles (1 or 2).
+    /// Footprint edge length in tiles (`1..=3`; the command hub is 3).
     pub footprint: u8,
     /// Construction time in milliseconds at 1x.
     pub build_time_ms: u32,

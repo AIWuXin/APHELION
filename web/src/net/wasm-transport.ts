@@ -1,7 +1,7 @@
 /**
  * A hand written `extern "C"` ABI instead of wasm-bindgen glue.
  *
- * The module exports a dozen functions over linear memory; the protocol is
+ * The module exports eighteen functions over linear memory; the protocol is
  * already binary, so the whole bridge is "write bytes, call, read bytes". This
  * keeps the build to one `cargo build --target wasm32-unknown-unknown` and
  * removes wasm-pack from the toolchain entirely.

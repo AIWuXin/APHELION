@@ -16,8 +16,8 @@
 
 /// Open `url` in the user's default browser.
 ///
-/// Returns `true` only when the browser process was spawned; the caller falls
-/// back to `cmd /c start` otherwise (see `main.rs`). No `wait()`: the browser
+/// Returns `true` only when the browser process was spawned; `open_browser()`
+/// in `lib.rs` falls back to `cmd /c start` otherwise. No `wait()`: the browser
 /// is a GUI application and this launcher is fire-and-forget.
 #[cfg(windows)]
 pub fn spawn_default_browser(url: &str) -> bool {

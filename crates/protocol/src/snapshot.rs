@@ -88,7 +88,7 @@ pub const EVENT_POWER: u8 = 10;
 pub const EVENT_SHORTAGE: u8 = 11;
 /// Victory / defeat.
 pub const EVENT_END: u8 = 12;
-/// A ground-only raid entered the map from the edge (era 1 director).
+/// Ground raiders spawned on a ring around the colony (era 1 director).
 pub const EVENT_RAID: u8 = 13;
 
 /// Every resource the top bar shows, plus the rates used for the deltas.

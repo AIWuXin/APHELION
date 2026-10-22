@@ -13,7 +13,7 @@ crates/
   protocol/    协议：Command / Snapshot / BootBlob / Catalog / ts-rs 导出 ← 无依赖
   sim/         确定性仿真：World + systems/*（无 I/O、无 DOM、无时钟）   ← iso, content, protocol
   sim-cli/     headless 跑 3000 tick 并打印哈希（CI 的确定性守卫）        ← sim
-  bridge-wasm/ 薄桥：12 个 extern "C" 函数，crate-type = cdylib          ← sim, protocol
+  bridge-wasm/ 薄桥：18 个 extern "C" 函数，crate-type = cdylib          ← sim, protocol
   launcher/   单文件 exe（兼 lib）：内嵌 dist/ + 最小 HTTP 服务 + 开浏览器 ← protocol
   desktop/    原生窗口：tao + wry/WebView2，自建 aphelion:// 协议   ← launcher, protocol（wry/tao 仅 Windows）
 web/src/
@@ -66,7 +66,7 @@ WasmTransport 自己跑 30Hz 定时器：
    ```rust
    BuildingRow { key: "gravity-forge", zh: "重力锻炉", en: "GRAVITY FORGE", desc: "…",
                  cost_alloy: 210, cost_fuel: 15, energy: -22, footprint: 2, build_ms: 13000,
-                 category: CAT_BUILD, hp: 320, tech: NO_TECH, range: 0, capacity: 0 },
+                 category: CAT_BUILD, hp: 320, tech: NO_TECH, range: 0, capacity: 0, tier: 1 },
    ```
 
 2. **TS 绘制注册** — `web/src/render/sprites/buildings.ts`：在 `BUILDING_PAINTERS` 里加键。
@@ -120,7 +120,8 @@ export class WebSocketTransport implements Transport {
 ## 5. 协议与会话
 
 - `PROTOCOL_VERSION` 在 `crates/protocol/src/version.rs`；客户端版本不符会直接拒绝启动。
-- 启动一次：`oc_init(seed)` → `BootBlob`（`Catalog` + `MapView`）→ 之后每帧只发 `Snapshot`。
+- 启动一次：`oc_init(seed)` → `BootBlob`（`Catalog` + 行星参数 `MapView`）→ 之后每帧只发 `Snapshot`。
+  `BootBlob` 不含地形数组；客户端按视口调用 `oc_chunk(cx, cy)` 流送 32×32 的 `ChunkView`。
 - 命令：`CommandBatch { client_tick, commands: Vec<Command> }`，postcard。
 - 扩展协议：**只在枚举末尾追加 variant**，不改既有字段；随后跑
   `cargo test -p oc-protocol` 重新生成 `web/src/generated/` 与 `web/tests/fixtures/`，
@@ -162,10 +163,12 @@ wry/WebView2，走 `aphelion://` 自定义协议读内嵌资源，不开端口�
 | 文件 | 为什么入库 |
 |---|---|
 | `web/src/generated/*.ts` | ts-rs 从 Rust 结构生成的协议类型。入库后前端不需要 Rust 就能 typecheck；`cargo test` 会重新生成，CI 的 rust job 用 `git diff --exit-code` 检查它是否与 Rust 声明同步。 |
-| `web/public/oc.wasm` | 85 KiB 的仿真内核。入库后 web CI job 变成纯 Node，不必在 Ubuntu 上装 Rust（那一步曾是 CI 唯一的抖动源）。 |
+| `web/public/oc.wasm` | 119 KiB 的仿真内核。入库后 web CI job 变成纯 Node，不必在 Ubuntu 上装 Rust（那一步曾是 CI 唯一的抖动源）。它的同步门禁是**行为哈希**而非字节比较：`git show HEAD:web/public/oc.wasm` 取出入库版本，`scripts/wasm-hash.mjs` 跑 300 idle 帧取 `oc_state_hash()`，与原生 `cargo run -q -p oc-sim-cli -- --idle 300` 的输出现场比对（D-11）。 |
 | `assets/icon.ico` `assets/icon.rgba` | `scripts/gen-icon.mjs` 画出来的程序图标。前者由 `crates/desktop/build.rs` 编进资源段（连同 manifest 与 VERSIONINFO），后者在运行时给 tao 窗口；生成它需要画图代码而不是外部素材，所以入库避免每次构建都跑一遍脚本。 |
 
 所以 CI 是三个职责清晰的 job：`rust`（内核门禁）、`web`（纯 Node 表现层门禁）、
 `package`（Windows 上产出桌面版 + 浏览器兜底两个 exe）。改动 `crates/sim` 或 `crates/protocol` 之后，
 本地必须跑一次 `pnpm run wasm` 与 `cargo test` 并提交重新生成的产物，否则 web job 用的
-还是旧内核。
+还是旧内核。两类产物的门禁不同：`web/src/generated` 与 `web/tests/fixtures` 是字节级
+`git diff --exit-code`（生成结果必须与 Rust 声明逐字一致）；`web/public/oc.wasm` 是行为哈希
+（跨平台字节永远不同，见 D-11）。

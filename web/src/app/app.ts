@@ -13,26 +13,32 @@ import type { Command } from '../generated/Command';
 import type { Snapshot } from '../generated/Snapshot';
 import { Renderer } from '../render/renderer';
 import type { Frame, Interaction } from '../render/frame';
-import { toWorldTile, type Camera } from '../render/iso';
+import type { Camera } from '../render/iso';
 import { injectTheme } from '../style/inject-theme';
 import { WasmTransport } from '../net/wasm-transport';
 import type { Transport } from '../net/transport';
 import { HudLayer } from '../ui/hud';
-import type { HudActions, HudView } from '../ui/hud-api';
+import type { HudActions, HudView, TerrainLookup } from '../ui/hud-api';
 import { CameraRig } from './camera-rig';
 import { startDemo } from './demo';
 import { Input, bindKeys } from './input';
 import { handleKey } from './keys';
+import { buildingAt, tileAt, unitAt } from './picking';
 import { Store } from './store';
-
-/** Offset from a tile's corner to its centre, in tiles. */
-const TILE_OFFSET = 0.5;
 
 /** Debug hook used by the screenshot harness and by support. */
 declare global {
   interface Window {
     /** Exposed only with `?debug=1`. */
     __ocCamera?: () => Camera;
+    /** Centre the camera on a wrapped tile (`?debug=1` only). */
+    __ocFocus?: (tx: number, ty: number) => void;
+    /** One-line terrain streaming summary (`?debug=1` only). */
+    __ocTerrain?: () => string;
+    /** Effective terrain material at a wrapped tile (`?debug=1` only). */
+    __ocProbe?: (tx: number, ty: number) => number;
+    /** Diagnostic dump of one streamed chunk (`?debug=1` only). */
+    __ocChunk?: (cx: number, cy: number) => unknown;
   }
 }
 
@@ -85,19 +91,37 @@ export class App {
     window.addEventListener('resize', () => this.resize());
   }
 
-  /** Boot the transport and the render loop. */
+  /**
+   * Boot the transport, frame the colony and start the render loop.
+   *
+   * The camera is anchored on the colony's start tile (not on a scroll offset)
+   * and the planet wraps, so there is nothing to clamp: the view can pan off into
+   * 10239 -> 0 forever.
+   */
   public async start(): Promise<void> {
     this.resize();
-    if (this.debug) window.__ocCamera = () => this.rig.camera;
     await this.transport.start({
       onBoot: (boot) => {
+        const map = boot.map;
         this.store.boot = boot;
-        this.renderer.setBoot(boot);
-        this.rig.setWorld(boot.map.w, boot.map.h);
+        this.renderer.setBoot(boot, this.chunkSource());
+        // Frame the command hub, whose 3x3 footprint starts at the anchor tile.
+        const hub = boot.catalog.buildings[0]?.footprint ?? 3;
+        this.rig.setWorld(map.width, map.height, map.start_tx + hub / 2, map.start_ty + hub / 2);
         this.rig.resize(window.innerWidth, window.innerHeight);
         this.rig.frameColony();
+        if (this.debug) {
+          window.__ocCamera = () => this.rig.camera;
+          window.__ocFocus = (tx, ty) => this.rig.focusTile(tx, ty);
+          window.__ocTerrain = () => this.terrainLine();
+          window.__ocProbe = (tx, ty) => this.renderer.tileMaterial(tx, ty);
+          window.__ocChunk = (cx, cy) => this.renderer.debugChunk(cx, cy);
+        }
+        // Bake the opening view behind the loading veil: the first frame the
+        // player sees must not be a grid of placeholder blocks.
+        this.renderer.warm(this.rig.camera);
         this.framed = true;
-        this.hud = new HudLayer(this.actions(), this.debug);
+        this.hud = new HudLayer(this.actions(), this.debug, this.terrainLookup());
         document.getElementById('boot-veil')?.classList.add('gone');
         if (new URLSearchParams(location.search).get('demo') === '1') {
           startDemo({
@@ -105,6 +129,7 @@ export class App {
             canPlace: (kind, tx, ty) => this.transport.queryPlace?.(kind, tx, ty).ok ?? false,
             snapshot: () => this.store.current,
             buildings: boot.catalog.buildings,
+            anchor: { tx: map.start_tx, ty: map.start_ty },
           });
         }
       },
@@ -132,6 +157,28 @@ export class App {
       return { stepMs: s.stepMs, snapshotBytes: s.snapshotBytes, banner: s.banner };
     }
     return { stepMs: 0, snapshotBytes: 0, banner: '' };
+  }
+
+  /** Terrain source handed to the renderer: `oc_chunk` when the transport has it. */
+  private chunkSource(): { chunk: (cx: number, cy: number) => ReturnType<WasmTransport['chunk']> } | null {
+    if (typeof this.transport.chunk !== 'function') return null;
+    return { chunk: (cx, cy) => this.transport.chunk?.(cx, cy) ?? null };
+  }
+
+  /** Read-only terrain probe the tactical scan samples. */
+  private terrainLookup(): TerrainLookup {
+    return {
+      material: (tx, ty) => this.renderer.tileMaterial(tx, ty),
+      ensure: (tx, ty) => this.renderer.prefetchTile(tx, ty),
+    };
+  }
+
+  /** One-line stream summary for `?debug=1` and the screenshot harness. */
+  private terrainLine(): string {
+    const s = this.renderer.terrainStats();
+    if (!s) return '--';
+    const mb = (s.pixels * 4) / (1024 * 1024);
+    return `V${s.visible} S${s.surfaces} P${s.pending} C${s.cold} R${s.records} F${s.fetches} ${mb.toFixed(0)}MB`;
   }
 
   // ---------------------------------------------------------------- actions
@@ -191,26 +238,22 @@ export class App {
   }
 
   private hover(screenX: number, screenY: number): void {
-    const tile = toWorldTile(this.rig.camera, screenX, screenY);
-    const tx = Math.floor(tile.x);
-    const ty = Math.floor(tile.y);
+    const tile = tileAt(this.rig.camera, screenX, screenY);
     const previous = this.store.hover;
-    if (previous && previous.tx === tx && previous.ty === ty) return;
-    this.store.hover = { tx, ty };
+    if (previous && previous.tx === tile.tx && previous.ty === tile.ty) return;
+    this.store.hover = { tx: tile.tx, ty: tile.ty };
     if (this.placing >= 0) {
-      const q = this.transport.queryPlace?.(this.placing, tx, ty);
+      const q = this.transport.queryPlace?.(this.placing, tile.tx, tile.ty);
       this.store.placementOk = q?.ok ?? false;
     }
   }
 
   private pick(screenX: number, screenY: number, additive: boolean): void {
-    const tile = toWorldTile(this.rig.camera, screenX, screenY);
-    const tx = Math.floor(tile.x);
-    const ty = Math.floor(tile.y);
+    const tile = tileAt(this.rig.camera, screenX, screenY);
     if (this.placing >= 0) {
-      const q = this.transport.queryPlace?.(this.placing, tx, ty);
+      const q = this.transport.queryPlace?.(this.placing, tile.tx, tile.ty);
       if (q?.ok) {
-        this.send([{ place: { kind: this.placing, tx, ty } }]);
+        this.send([{ place: { kind: this.placing, tx: tile.tx, ty: tile.ty } }]);
         this.placing = -1;
       }
       return;
@@ -218,20 +261,16 @@ export class App {
     if (!additive) this.store.clearSelection();
     const snap = this.store.current;
     if (!snap) return;
-    const building = snap.buildings.find((b) => {
-      const size = this.store.boot?.catalog.buildings[b.kind]?.footprint ?? 1;
-      return tx >= b.tx && tx < b.tx + size && ty >= b.ty && ty < b.ty + size;
-    });
+    // Footprints and units are tested through the torus, so a click on the tile
+    // just past the seam still hits a structure anchored on the other side.
+    const catalogs = this.store.boot?.catalog.buildings ?? [];
+    const building = buildingAt(snap.buildings, tile, (kind) => catalogs[kind]?.footprint ?? 1);
     if (building) {
       this.store.selected = building.id;
       this.store.selectedKind = 'building';
       return;
     }
-    const unit = snap.units.find(
-      (u) =>
-        Math.abs(u.x / 1024 - (tx + TILE_OFFSET)) < 0.9 &&
-        Math.abs(u.y / 1024 - (ty + TILE_OFFSET)) < 0.9,
-    );
+    const unit = unitAt(snap.units, tile);
     if (unit) {
       this.store.selected = unit.id;
       this.store.selectedKind = 'unit';
@@ -316,6 +355,8 @@ export class App {
   private hudView(snapshot: Snapshot): HudView {
     const boot = this.store.boot;
     if (!boot) throw new Error('hud view before boot');
+    const anchor = this.rig.anchor;
+    const hover = this.store.hover;
     return {
       snapshot,
       boot,
@@ -327,6 +368,9 @@ export class App {
             stepMs: this.store.stepMs,
             snapshotBytes: this.store.snapshotBytes,
             banner: `${this.store.banner}  ZOOM ${this.rig.zoomPercent}%`,
+            anchor: `${anchor.tx},${anchor.ty}`,
+            hover: hover ? `${hover.tx},${hover.ty}` : '--',
+            terrain: this.terrainLine(),
           }
         : null,
     };

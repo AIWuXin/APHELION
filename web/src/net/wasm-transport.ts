@@ -9,10 +9,13 @@
 
 import type { BuildQuery } from '../generated/BuildQuery';
 import type { BootBlob } from '../generated/BootBlob';
+import type { ChunkView } from '../generated/ChunkView';
 import type { Command } from '../generated/Command';
 import type { Snapshot } from '../generated/Snapshot';
-import { decodeBootBlob, decodeSnapshot } from './decode';
+import { decodeBootBlob, decodeChunkView, decodeSnapshot } from './decode';
 import { encodeCommandBatch } from './encode';
+import { Reader } from './postcard';
+import { CLIENT_PROTOCOL } from './protocol';
 import type { Transport, TransportHandlers } from './transport';
 
 /** Exports declared by `crates/bridge-wasm/src/lib.rs`. */
@@ -28,6 +31,8 @@ interface OcExports {
   readonly oc_snapshot_len: () => number;
   readonly oc_boot_ptr: () => number;
   readonly oc_boot_len: () => number;
+  readonly oc_chunk: (cx: number, cy: number) => number;
+  readonly oc_chunk_len: () => number;
   readonly oc_query_place: (kind: number, tx: number, ty: number) => number;
   readonly oc_banner_ptr: () => number;
   readonly oc_banner_len: () => number;
@@ -93,7 +98,9 @@ export class WasmTransport implements Transport {
       const seed = this.seed || readSeedFromUrl();
       this.seed = seed;
       const version = exports.oc_init(seed);
-      if (version !== 1) throw new Error(`oc.wasm: protocol ${version}, client expects 1`);
+      if (version !== CLIENT_PROTOCOL) {
+        throw new Error(`oc.wasm: protocol ${version}, client expects ${CLIENT_PROTOCOL}`);
+      }
 
       const boot = this.readBlob(exports.oc_boot_ptr(), exports.oc_boot_len());
       const bootBlob: BootBlob = decodeBootBlob(boot);
@@ -131,6 +138,26 @@ export class WasmTransport implements Transport {
       cost_alloy: (packed >>> 16) & 0xffff,
       cost_fuel: 0,
     };
+  }
+
+  /**
+   * Stream one 32x32 terrain chunk.
+   *
+   * `oc_chunk` reuses one encoding buffer, so the bytes are copied out before
+   * anything else touches the module. Chunk coordinates wrap on the planet.
+   */
+  public chunk(cx: number, cy: number): ChunkView | null {
+    const exports = this.module;
+    if (!exports || typeof exports.oc_chunk !== 'function') return null;
+    const ptr = exports.oc_chunk(cx, cy);
+    const len = exports.oc_chunk_len();
+    const bytes = this.readBlob(ptr, len);
+    if (bytes.byteLength === 0) return null;
+    try {
+      return decodeChunkView(new Reader(bytes));
+    } catch {
+      return null;
+    }
   }
 
   /** Latest timing figures for the debug overlay. */

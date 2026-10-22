@@ -102,12 +102,27 @@ pub const KILL_ALLOY_SHIP: i32 = 25;
 pub const DROPS_BASE: u8 = 2;
 /// Extra drops at fierce strength.
 pub const DROPS_FIERCE_EXTRA: u8 = 2;
-/// Ground raiders per drop pod (era 2+) or per edge squad (era 1).
+/// Ground raiders per drop pod (era 2+) or per ring squad (era 1).
 pub const RAIDERS_PER_DROP: u8 = 2;
 /// Tiles from a structure at which a ground-only raid counts as engaged
 /// (`threat` 2) instead of inbound (`threat` 1). Era 1 has no air layer, so the
 /// threat readout is driven by distance to the colony rather than by dropships.
 pub const RAID_CONTACT_TILES: i32 = 6;
+
+/// Radius of the era-1 ground-raid ring around the colony hub, in tiles. There
+/// is no map edge on a torus, so raids are delivered by angle instead of by
+/// walking in from a border.
+pub const RAID_RING_TILES: i32 = 24;
+/// Angular step tried when a ring tile is deep water, in turn units
+/// (`oc_iso::trig::TURN` is one revolution, so 4096 = 22.5 degrees).
+pub const RAID_ANGLE_STEP_TURNS: i32 = 4096;
+/// Bounded number of ring angles tried before the shallow-water fallback.
+pub const RAID_ANGLE_TRIES: i32 = 16;
+/// Radius at which era-2+ dropships enter the atmosphere, in tiles. Chosen to
+/// match the reach of the old 44x44 map edge (about 30 tiles from the centre) so
+/// the orbital assault keeps its pacing on the torus; there is no edge to enter
+/// from any more, so they come in on this ring instead.
+pub const DROPSHIP_INSERT_RADIUS_TILES: i32 = 28;
 
 /// Damage multiplier permille for the ballistics tech.
 pub const BALLISTICS_BONUS: i32 = 300;

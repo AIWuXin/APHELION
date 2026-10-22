@@ -224,8 +224,14 @@ pub fn facing_from(dx: i32, dy: i32) -> u8 {
 }
 
 /// Centre of a building footprint in fixed point units.
+///
+/// Wrapped, so a hub anchored on the seam reports the centre the renderer draws
+/// its explosions over instead of a position one planet-width away.
 #[must_use]
 pub fn centre(tx: i32, ty: i32, kind: u8) -> (i32, i32) {
     let size = i32::from(World::def(kind).footprint);
-    (tx * FP + size * FP / 2, ty * FP + size * FP / 2)
+    (
+        oc_iso::torus::wrap_fp_x(tx * FP + size * FP / 2),
+        oc_iso::torus::wrap_fp_y(ty * FP + size * FP / 2),
+    )
 }

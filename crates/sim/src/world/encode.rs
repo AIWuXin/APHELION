@@ -196,16 +196,22 @@ impl World {
             seed: self.seed,
             catalog: oc_content::catalog(),
             map: MapView {
-                w: self.map.w as u16,
-                h: self.map.h as u16,
-                material: self.map.material.clone(),
-                height: self.map.height.clone(),
-                decor: self.map.decor.clone(),
-                deposit: self.map.deposit.clone(),
-                coal: self.map.coal.clone(),
+                seed: self.map.seed,
+                width: self.map.w as u16,
+                height: self.map.h as u16,
+                chunk_size: oc_iso::torus::CHUNK as u16,
+                start_tx: self.map.start.0 as u16,
+                start_ty: self.map.start.1 as u16,
             },
         };
         self.boot_buf = postcard::to_allocvec(&boot).unwrap_or_default();
+    }
+
+    /// Wire view of one chunk for `oc_chunk`: generated on demand, coordinates
+    /// wrap, so the client can stream the planet in either direction.
+    #[must_use]
+    pub fn chunk_view(&self, cx: i32, cy: i32) -> oc_protocol::ChunkView {
+        self.map.chunk_view(cx, cy)
     }
 
     /// Encoded snapshot for the most recent tick.

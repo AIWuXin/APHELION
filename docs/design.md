@@ -1,4 +1,4 @@
-# 设计文档 / Design — APHELION · 远日点指挥终端
+# 设计文档 / Design — APHELION · 远日点
 
 > 阶段 1 交付物。风格契约、架构、关键取舍、风险与验证方式。实现细节见
 > [`architecture.md`](architecture.md)，全部取舍与偏离见 [`decisions.md`](decisions.md)。

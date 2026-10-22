@@ -1,8 +1,14 @@
 //! Director: paces hostile waves, delivers them and tracks the threat level.
 //!
 //! Delivery depends on the era: era 1 has no air layer and no anti-air, so waves
-//! are ground raids that walk in from the map edge; era 2+ keeps the orbital
-//! drop ships (and with them siege walkers and orbital escorts).
+//! are ground raids that appear on a deterministic **ring** around the colony
+//! hub; era 2+ keeps the orbital drop ships (and with them siege walkers and
+//! orbital escorts).
+//!
+//! The planet has no edge to walk in from (it is a torus), which is why the T1
+//! raid is placed by angle rather than by border tile: the ring keeps the same
+//! "threat approaches from off-screen" pacing the old map edge provided, without
+//! reintroducing an edge concept into the kernel.
 //!
 //! Sensor visibility contract (also documented on [`crate::world::World::visible_eta_ms`]):
 //! - with a finished radar array the next wave is announced the moment the
@@ -17,12 +23,17 @@
 //! earlier siege walkers).
 
 use oc_content::balance;
+use oc_content::buildings;
+use oc_content::terrain::{T_DEEP, T_SHALLOW};
 use oc_content::units;
-use oc_iso::fixed::{dist2, FP};
+use oc_iso::fixed::FP;
+use oc_iso::torus;
+use oc_iso::trig;
 use oc_protocol::{
     EFFECT_TRAIL, EVENT_DROP, EVENT_RAID, EVENT_WAVE, STATUS_RUNNING, UNIT_STATE_MOVE,
 };
 
+use crate::mapgen;
 use crate::state::{Ship, Unit};
 use crate::systems::targeting::{speed_per_tick, step_xy};
 use crate::world::World;
@@ -88,8 +99,8 @@ fn spawn_wave(world: &mut World) {
     world.wave_in_flight = true;
     world.threat = 1;
 
-    // Era 1 has no air layer (and no anti-air), so the same troop budget walks
-    // in from the map edge; era 2+ keeps the original orbital drop.
+    // Era 1 has no air layer (and no anti-air), so the same troop budget appears
+    // on the raid ring; era 2+ keeps the original orbital drop.
     if world.era >= 2 {
         spawn_dropships(world, drops);
     } else {
@@ -97,13 +108,65 @@ fn spawn_wave(world: &mut World) {
     }
 }
 
-/// Drop-pod path: dropships enter from a random edge and descend toward the
-/// colony centre.
+/// Centre of the colony hub in tile coordinates (wrapped).
+///
+/// Everything offensive is aimed at this point: the raid ring, the dropship
+/// descent and the orbital escort formation. Falls back to the map's home tile
+/// if the hub has already been destroyed.
+fn colony_centre(world: &World) -> (i32, i32) {
+    if let Some(hq) = world
+        .buildings
+        .iter()
+        .find(|b| b.kind == buildings::B_HQ && b.hp > 0)
+    {
+        let size = i32::from(World::def(hq.kind).footprint);
+        return (
+            torus::wrap_x(hq.tx + size / 2),
+            torus::wrap_y(hq.ty + size / 2),
+        );
+    }
+    let hq = mapgen::hq_size();
+    (
+        torus::wrap_x(world.map.start.0 + hq / 2),
+        torus::wrap_y(world.map.start.1 + hq / 2),
+    )
+}
+
+/// A tile on the circle of `radius` around `(cx, cy)` at a turn angle.
+fn ring_point(cx: i32, cy: i32, angle: i32, radius: i32) -> (i32, i32) {
+    let dx = trig::cos(angle) * radius / trig::ONE;
+    let dy = trig::sin(angle) * radius / trig::ONE;
+    (torus::wrap_x(cx + dx), torus::wrap_y(cy + dy))
+}
+
+/// Pick a land tile on the raid ring, rotating in fixed steps while the first
+/// choice is deep water. Bounded: after [`balance::RAID_ANGLE_TRIES`] the best
+/// shallow-water tile wins (raiders can wade); if even that never came up, the
+/// last angle is used as-is. Deterministic for a given roll.
+fn raid_ring_tile(world: &World, roll: u32) -> (i32, i32) {
+    let (cx, cy) = colony_centre(world);
+    let mut angle = (roll % trig::TURN as u32) as i32;
+    let mut shallow: Option<(i32, i32)> = None;
+    for _ in 0..balance::RAID_ANGLE_TRIES {
+        let (x, y) = ring_point(cx, cy, angle, balance::RAID_RING_TILES);
+        match world.map.material_at(x, y) {
+            T_DEEP => {}
+            T_SHALLOW => shallow = shallow.or(Some((x, y))),
+            _ => return (x, y),
+        }
+        angle = (angle + balance::RAID_ANGLE_STEP_TURNS) % trig::TURN;
+    }
+    shallow.unwrap_or_else(|| ring_point(cx, cy, angle, balance::RAID_RING_TILES))
+}
+
+/// Drop-pod path: dropships appear on a wide insertion ring and descend toward
+/// the colony centre (the planet has no edge to enter from).
 fn spawn_dropships(world: &mut World, drops: u8) {
-    let span = oc_iso::grid::MAP_W;
+    let (cx, cy) = colony_centre(world);
     for i in 0..drops {
         let roll = world.rng.director.next_u32();
-        let (tx, ty) = edge_tile(roll, span);
+        let angle = (roll % trig::TURN as u32) as i32;
+        let (tx, ty) = ring_point(cx, cy, angle, balance::DROPSHIP_INSERT_RADIUS_TILES);
         let id = world.alloc_id();
         let def = World::unit_def(units::U_DROPSHIP);
         world.ships.push(Ship {
@@ -123,13 +186,12 @@ fn spawn_dropships(world: &mut World, drops: u8) {
     }
 }
 
-/// Ground-raid path (era 1): squads appear on deterministic edge tiles and the
-/// existing raider AI marches them on the colony.
+/// Ground-raid path (era 1): squads appear on deterministic ring tiles around
+/// the colony and the existing raider AI marches them in.
 fn spawn_ground_raid(world: &mut World, squads: u8) {
-    let span = oc_iso::grid::MAP_W;
     for _ in 0..squads {
         let roll = world.rng.director.next_u32();
-        let (tx, ty) = edge_tile(roll, span);
+        let (tx, ty) = raid_ring_tile(world, roll);
         world.event(
             EVENT_RAID,
             u32::from(balance::RAIDERS_PER_DROP),
@@ -139,18 +201,6 @@ fn spawn_ground_raid(world: &mut World, squads: u8) {
         );
         deploy_raiders(world, tx, ty);
         world.effect(EFFECT_TRAIL, tx * FP, ty * FP, 200, 24, 0);
-    }
-}
-
-/// Pick an edge tile from one RNG roll (`% 4` = edge, high bits = position).
-fn edge_tile(roll: u32, span: i32) -> (i32, i32) {
-    let edge = roll % 4;
-    let t = ((roll >> 8) % span as u32) as i32;
-    match edge {
-        0 => (t, 0),
-        1 => (span - 1, t),
-        2 => (t, span - 1),
-        _ => (0, t),
     }
 }
 
@@ -214,11 +264,12 @@ fn update_orbital(world: &mut World, dt_ms: u32) {
             let def = World::unit_def(units::U_WARSHIP);
             let id = world.alloc_id();
             let angle = world.rng.director.next_u32() % 360;
+            let (cx, cy) = colony_centre(world);
             world.ships.push(Ship {
                 id,
                 kind: units::U_WARSHIP,
-                x: FP * 22,
-                y: FP * 22,
+                x: cx * FP,
+                y: cy * FP,
                 z: 3200,
                 hp: def.hp,
                 hp_max: def.hp,
@@ -238,8 +289,8 @@ fn update_orbital(world: &mut World, dt_ms: u32) {
 }
 
 fn update_dropships(world: &mut World, dt_ms: u32) {
-    let gx = (oc_iso::grid::MAP_W / 2) * FP;
-    let gy = (oc_iso::grid::MAP_H / 2) * FP;
+    let (gx, gy) = colony_centre(world);
+    let (gx, gy) = (gx * FP, gy * FP);
     let descent = (balance::DROPSHIP_DESCENT_FP_S * dt_ms as i32 / 1000).max(1);
     let mut landed: Vec<(i32, i32)> = Vec::new();
     let mut gone: Vec<u32> = Vec::new();
@@ -253,8 +304,8 @@ fn update_dropships(world: &mut World, dt_ms: u32) {
             s.z = (s.z - descent).max(balance::DROPSHIP_LAND_ALT_FP);
         }
         if s.z <= balance::DROPSHIP_LAND_ALT_FP {
-            let tx = (s.x / FP).clamp(0, oc_iso::grid::MAP_W - 1);
-            let ty = (s.y / FP).clamp(0, oc_iso::grid::MAP_H - 1);
+            let tx = torus::wrap_x(s.x / FP);
+            let ty = torus::wrap_y(s.y / FP);
             landed.push((tx, ty));
             gone.push(s.id);
         }
@@ -301,7 +352,8 @@ fn update_dropships(world: &mut World, dt_ms: u32) {
 ///
 /// Era 1 reports `threat` 1 while the raid is still marching and 2 once it is
 /// in weapon reach, which is the ground-only analogue of "dropships descending"
-/// vs "raiders on the ground".
+/// vs "raiders on the ground". Distances are toroidal: a raider that approached
+/// over the seam is genuinely near, not a planet away.
 fn raid_in_contact(world: &World) -> bool {
     let reach = balance::RAID_CONTACT_TILES.max(1) as u64;
     let reach2 = reach * reach;
@@ -313,7 +365,7 @@ fn raid_in_contact(world: &World) -> bool {
             let size = i32::from(World::def(b.kind).footprint);
             let cx = b.tx * FP + size * FP / 2;
             let cy = b.ty * FP + size * FP / 2;
-            if dist2(u.x, u.y, cx, cy) <= reach2 {
+            if torus::dist2_fp(u.x, u.y, cx, cy) <= reach2 {
                 return true;
             }
         }

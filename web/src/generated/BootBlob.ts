@@ -19,6 +19,6 @@ seed: number,
  */
 catalog: Catalog, 
 /**
- * The generated planet.
+ * The planet's dimensions, chunk size and colony anchor.
  */
 map: MapView, };

@@ -43,8 +43,8 @@ pub fn update(world: &mut World, dt_ms: u32) {
         world.event(EVENT_BUILD_DONE, u32::from(kind), 0, tx as i16, ty as i16);
         world.effect(
             oc_protocol::EFFECT_SPARK,
-            tx * oc_iso::FP + oc_iso::FP,
-            ty * oc_iso::FP + oc_iso::FP,
+            oc_iso::torus::wrap_fp_x(tx * oc_iso::FP + oc_iso::FP),
+            oc_iso::torus::wrap_fp_y(ty * oc_iso::FP + oc_iso::FP),
             0,
             20,
             kind as i32,

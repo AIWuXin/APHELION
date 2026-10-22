@@ -11,7 +11,7 @@ import type { BuildingView } from '../generated/BuildingView';
 import { BUILDING_KEYS } from '../generated/content-keys';
 import { PALETTE, TILE, rgba } from '../style/tokens';
 import type { Frame } from './frame';
-import { project, toScreen } from './iso';
+import { toScreen } from './iso';
 import type { Camera } from './iso';
 import { GLOW } from './world-palette';
 
@@ -55,18 +55,14 @@ function drawLane(
   const length = 13;
   const dx = dir[0];
   const dy = dir[1];
-  const start = project(ox + dx * 1.1, oy + dy * 1.1, 0);
-  const end = project(ox + dx * length, oy + dy * length, 0);
+  // Every lane point is projected through `toScreen`, which unwraps it next to
+  // the camera: a dock sitting on the x = 0/10239 seam still draws its lane on
+  // screen instead of teleporting half a planet away.
+  const start = toScreen(cam, ox + dx * 1.1, oy + dy * 1.1, 0);
+  const end = toScreen(cam, ox + dx * length, oy + dy * length, 0);
   // Amber underlay: the lane is wired at all times.
-  seg(ctx, start.x + cam.x, start.y + cam.y, end.x + cam.x, end.y + cam.y, rgba(GLOW.primary, 0.2));
-  seg(
-    ctx,
-    start.x + cam.x,
-    start.y + cam.y + 1,
-    end.x + cam.x,
-    end.y + cam.y + 1,
-    rgba('#000000', 0.25),
-  );
+  seg(ctx, start.x, start.y, end.x, end.y, rgba(GLOW.primary, 0.2));
+  seg(ctx, start.x, start.y + 1, end.x, end.y + 1, rgba('#000000', 0.25));
   // Cyan dashes marching out along the lane.
   const dash = 0.42;
   const gap = 0.34;
@@ -79,29 +75,28 @@ function drawLane(
     if (a >= length) break;
     for (let k = 0; k < 7; k += 1) {
       const t = a + ((b - a) * k) / 7;
-      const p = project(ox + dx * t, oy + dy * t, 0);
-      ctx.fillRect(Math.round(p.x + cam.x), Math.round(p.y + cam.y), 2, 1);
+      const p = toScreen(cam, ox + dx * t, oy + dy * t, 0);
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 1);
     }
   }
   // Chevrons every ~3 tiles point the way the lane runs.
   ctx.fillStyle = rgba(GLOW.function, 0.5 + pulse * 0.3);
   for (let t = 2.2; t < length; t += 3.1) {
-    const p = project(ox + dx * t, oy + dy * t, 0);
-    const sx = p.x + cam.x;
-    const sy = p.y + cam.y;
+    const p = toScreen(cam, ox + dx * t, oy + dy * t, 0);
+    const sx = p.x;
+    const sy = p.y;
     ctx.fillRect(Math.round(sx) - 1, Math.round(sy) - 1, 1, 1);
     ctx.fillRect(Math.round(sx), Math.round(sy), 1, 1);
     ctx.fillRect(Math.round(sx) - 1, Math.round(sy) + 1, 1, 1);
   }
   // A pulsing end marker so a running lane is unmistakable.
-  const tail = project(ox + dx * length, oy + dy * length, 0);
   ctx.strokeStyle = rgba(GLOW.function, 0.35 + pulse * 0.35);
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(Math.round(tail.x + cam.x), Math.round(tail.y + cam.y) - 3);
-  ctx.lineTo(Math.round(tail.x + cam.x) + 3, Math.round(tail.y + cam.y));
-  ctx.lineTo(Math.round(tail.x + cam.x), Math.round(tail.y + cam.y) + 3);
-  ctx.lineTo(Math.round(tail.x + cam.x) - 3, Math.round(tail.y + cam.y));
+  ctx.moveTo(Math.round(end.x), Math.round(end.y) - 3);
+  ctx.lineTo(Math.round(end.x) + 3, Math.round(end.y));
+  ctx.lineTo(Math.round(end.x), Math.round(end.y) + 3);
+  ctx.lineTo(Math.round(end.x) - 3, Math.round(end.y));
   ctx.closePath();
   ctx.stroke();
 }

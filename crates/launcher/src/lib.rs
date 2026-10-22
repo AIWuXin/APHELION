@@ -81,7 +81,7 @@ pub fn run_http_server_with_query(
 
     println!();
     println!("  APHELION {}", oc_protocol::PRODUCT_VERSION);
-    println!("  远日点指挥终端 · 等距殖民地 / 轨道物流 / 舰队防御");
+    println!("  远日点 · 等距殖民地 / 轨道物流 / 舰队防御");
     println!();
     if ASSETS.is_empty() {
         println!("  [警告] 此二进制未内嵌前端资源（构建时缺少 dist/）");

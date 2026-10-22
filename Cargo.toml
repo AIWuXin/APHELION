@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0-a0"
+version = "0.1.0-a1"
 edition = "2021"
 # `u32::is_multiple_of` (used by the economy/event cadence) landed in 1.87.
 rust-version = "1.87"

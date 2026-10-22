@@ -58,13 +58,14 @@ fn place(world: &mut World, kind: u8, tx: i32, ty: i32) {
     world.take_fuel(def.cost_fuel);
     let instant = world.sandbox(SANDBOX_INSTANT) && balance::SANDBOX_INSTANT_BUILD;
     let id = world.place_now(kind, tx, ty, instant);
+    let (tx, ty) = oc_iso::torus::wrap(tx, ty);
     if instant {
         world.event(EVENT_BUILD_DONE, u32::from(kind), 0, tx as i16, ty as i16);
     }
     world.effect(
         oc_protocol::EFFECT_SPARK,
-        tx * oc_iso::FP + oc_iso::FP,
-        ty * oc_iso::FP + oc_iso::FP,
+        oc_iso::torus::wrap_fp_x(tx * oc_iso::FP + oc_iso::FP),
+        oc_iso::torus::wrap_fp_y(ty * oc_iso::FP + oc_iso::FP),
         0,
         18,
         id as i32,
@@ -87,8 +88,8 @@ fn demolish(world: &mut World, id: u32) {
     world.buildings.remove(pos);
     world.effect(
         oc_protocol::EFFECT_EXPLODE,
-        building.tx * oc_iso::FP + oc_iso::FP,
-        building.ty * oc_iso::FP + oc_iso::FP,
+        oc_iso::torus::wrap_fp_x(building.tx * oc_iso::FP + size * oc_iso::FP / 2),
+        oc_iso::torus::wrap_fp_y(building.ty * oc_iso::FP + size * oc_iso::FP / 2),
         0,
         14,
         refund,

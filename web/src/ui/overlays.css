@@ -155,12 +155,21 @@
   transition: opacity 900ms linear;
 }
 
-.oc-subtitle__seed {
-  margin-left: auto;
+.oc-subtitle__seed,
+.oc-subtitle__stamp {
   font-size: 9px;
   letter-spacing: 0.18em;
   color: var(--oc-ink-3);
   transition: opacity 400ms linear;
+}
+
+.oc-subtitle__seed {
+  margin-left: auto;
+}
+
+/* Build stamp: same metrics as SEED, in the status green so it reads first. */
+.oc-subtitle__stamp {
+  color: var(--oc-status);
 }
 
 .oc-subtitle.is-faded .oc-subtitle__line {
@@ -168,7 +177,8 @@
 }
 
 .oc-subtitle.is-faded .oc-subtitle__who,
-.oc-subtitle.is-faded .oc-subtitle__seed {
+.oc-subtitle.is-faded .oc-subtitle__seed,
+.oc-subtitle.is-faded .oc-subtitle__stamp {
   opacity: 0.55;
 }
 

@@ -6,8 +6,8 @@
 //! instead of silently corrupting the HUD.
 
 use oc_protocol::{
-    BeamView, BuildingView, Command, CommandBatch, EffectView, EventView, Orbital, Policy,
-    Resources, RouteView, ShipView, Snapshot, UnitView, PROTOCOL_VERSION,
+    BeamView, BuildingView, ChunkView, Command, CommandBatch, EffectView, EventView, Orbital,
+    Policy, Resources, RouteView, ShipView, Snapshot, UnitView, PROTOCOL_VERSION,
 };
 
 fn fixture() -> Snapshot {
@@ -136,7 +136,7 @@ fn expected_json() -> String {
     // Hand written so it is a genuinely independent description of the wire
     // shape rather than a round trip of the same code.
     r#"{
-  "protocol": 1,
+  "protocol": 2,
   "tick": 300,
   "hash": 3735928559,
   "time_ms": 9900,
@@ -193,7 +193,6 @@ fn emit_golden_fixtures() {
     std::fs::create_dir_all(&dir).expect("create fixture dir");
     std::fs::write(dir.join("snapshot.bin"), &bytes).expect("write bin");
     std::fs::write(dir.join("snapshot.json"), expected_json()).expect("write json");
-
     // A command batch, so the TypeScript *encoder* can be diffed byte for byte
     // against the Rust encoder.
     let batch = CommandBatch {
@@ -230,6 +229,83 @@ fn emit_golden_fixtures() {
     println!("fixture bytes = {}", bytes.len());
     println!("fixture head  = {head}");
     println!("command bytes = {}", cmd_bytes.len());
+
+    // Terrain is fetched per chunk now: emit one chunk so the TypeScript chunk
+    // decoder has a golden binary to check its array layout against.
+    let chunk = chunk_fixture();
+    let chunk_bytes = postcard::to_allocvec(&chunk).expect("encode chunk");
+    std::fs::write(dir.join("chunk.bin"), &chunk_bytes).expect("write chunk.bin");
+    std::fs::write(dir.join("chunk.json"), chunk_expected_json()).expect("write chunk.json");
+    println!("chunk bytes   = {}", chunk_bytes.len());
+}
+
+/// A synthetic 32x32 chunk with a recognisable, cheap pattern:
+/// `terrain = i % 15`, `decor = i % 7`, `elev = (i % 6) - 2`, ore on every
+/// 11th tile, coal on every 13th tile that is not ore.
+fn chunk_fixture() -> ChunkView {
+    const N: usize = 1024;
+    let mut terrain = Vec::with_capacity(N);
+    let mut decor = Vec::with_capacity(N);
+    let mut elev = Vec::with_capacity(N);
+    let mut ore = Vec::with_capacity(N);
+    let mut coal = Vec::with_capacity(N);
+    for i in 0..N {
+        terrain.push((i % 15) as u8);
+        decor.push((i % 7) as u8);
+        elev.push(((i % 6) as i8) - 2);
+        ore.push(if i % 11 == 0 { 120 } else { 0 });
+        coal.push(if i % 13 == 0 && i % 11 != 0 { 90 } else { 0 });
+    }
+    ChunkView {
+        cx: 3,
+        cy: 160,
+        terrain,
+        decor,
+        elev,
+        ore,
+        coal,
+    }
+}
+
+/// Hand written expectation for [`chunk_fixture`]: heads of the first 16 tiles
+/// plus the two richness sums, so drift in either direction fails the test.
+fn chunk_expected_json() -> String {
+    r#"{
+  "cx": 3,
+  "cy": 160,
+  "size": 1024,
+  "terrain_head": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,0],
+  "decor_head": [0,1,2,3,4,5,6,0,1,2,3,4,5,6,0,1],
+  "elev_head": [-2,-1,0,1,2,3,-2,-1,0,1,2,3,-2,-1,0,1],
+  "ore_head": [120,0,0,0,0,0,0,0,0,0,0,120,0,0,0,0],
+  "coal_head": [0,0,0,0,0,0,0,0,0,0,0,0,0,90,0,0],
+  "ore_sum": 11280,
+  "coal_sum": 6390
+}"#
+    .to_owned()
+}
+
+#[test]
+fn chunk_fixture_round_trips_and_matches_its_json() {
+    let chunk = chunk_fixture();
+    let bytes = postcard::to_allocvec(&chunk).expect("encode chunk");
+    let back: ChunkView = postcard::from_bytes(&bytes).expect("decode chunk");
+    assert_eq!(back.cx, 3);
+    assert_eq!(back.cy, 160);
+    assert_eq!(back.terrain.len(), 1024);
+    assert_eq!(back.elev[0], -2, "elevation uses i8");
+    assert_eq!(back.ore.iter().map(|v| u32::from(*v)).sum::<u32>(), 11_280);
+    assert_eq!(back.coal.iter().map(|v| u32::from(*v)).sum::<u32>(), 6_390);
+    let terrain_head: Vec<u8> = (0..16).map(|i| (i % 15) as u8).collect();
+    assert_eq!(&back.terrain[..16], terrain_head.as_slice());
+    let decor_head: [u8; 16] = [0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1];
+    assert_eq!(&back.decor[..16], &decor_head);
+    let elev_head: [i8; 16] = [-2, -1, 0, 1, 2, 3, -2, -1, 0, 1, 2, 3, -2, -1, 0, 1];
+    assert_eq!(&back.elev[..16], &elev_head);
+    let json = chunk_expected_json();
+    assert!(json.contains("\"ore_sum\": 11280"));
+    assert!(json.contains("\"coal_sum\": 6390"));
+    assert!(json.contains("\"terrain_head\""));
 }
 
 #[test]

@@ -1,290 +1,346 @@
 /**
- * Terrain baking.
+ * Streaming terrain layer.
  *
- * The planet never changes after boot, so it is painted once into an offscreen
- * canvas and blitted every frame. That is what buys the 60fps budget: the world
- * layer only redraws moving things.
+ * The planet surface is 10240 x 10240 tiles: 102400 chunks, none of which can be
+ * baked up front (the old `TerrainLayer` painted all 1936 tiles of a 44x44 island
+ * into one canvas at boot). This layer streams instead:
  *
- * Surface language (invariant #3): every tile is a hard-edged rhombus of one
- * material with a 1px darker seam on its two lower edges, a small per-tile
- * value jitter, and a sparse dithered fringe only where two materials meet.
- * The generated map is low frequency, so a companion mask (majority-filtered
- * so it only ever produces 2-4 tile patches) breaks the big regions into a
- * hard-edged patchwork instead of camouflage blobs.
+ *   1. **visible set** -- the chunks whose 32x32 diamond touches the viewport,
+ *      derived from the camera's torus-relative corners. Recomputed only when
+ *      the camera leaves the current chunk rect or the viewport changes.
+ *      {@link planViewport} owns that geometry, plus the look-ahead ring: one
+ *      chunk out, and one more on the leading edge of a pan.
+ *   2. **data** -- {@link ChunkStore} fetches `oc_chunk` records within a
+ *      per-frame budget, screen first, then the 3x3 neighbourhood a
+ *      companion-mask halo needs, then the ring.
+ *   3. **bake** -- {@link ChunkSurface} canvases are started before the frame's
+ *      paint budget is spent, so a chunk entering the viewport never shows as a
+ *      flat placeholder diamond, and the rest of the bake is sliced by time.
+ *   4. **evict** -- {@link SurfaceCache} keeps total canvas pixels bounded and
+ *      never drops a chunk that is on screen this frame.
  *
- * Bake order: all tile tops (screen-depth order), then every cliff lip and the
- * island crust, then the props. No per-frame work happens here.
+ * Chunks are drawn in ascending `(x + y)` order (the same painter's order the
+ * tile lattice uses), so a prop rising out of a chunk's northern edge is never
+ * covered by the chunk behind it, and a cliff lip whose canvas bleed reaches
+ * into the southern chunk is re-painted there after that chunk's own tops.
  */
 
+import type { ChunkSource } from './terrain/chunk-store';
+import { ChunkStore } from './terrain/chunk-store';
+import { ChunkSurface, chunkGeometry } from './terrain/chunk-baker';
+import { BAKE_PIXEL_BUDGET, SurfaceCache } from './terrain/chunk-cache';
+import { TilePainter } from './terrain/paint';
+import type { VisibleChunk } from './terrain/viewport';
+import { planViewport } from './terrain/viewport';
 import type { MapView } from '../generated/MapView';
-import { TERRAIN_KEYS } from '../generated/content-keys';
-import { PALETTE, TILE, mix, shade } from '../style/tokens';
-import { crisp } from './primitives';
-import { paintCrystalClusters, SURFACE_INDEX } from './terrain/materials-b';
-import { paintCliff, paintMapRim, paintShore } from './terrain/cliff';
-import { paintDecorTile, paintGroundMark } from './terrain/decor';
-import { clipDiamond, diamondPath, isoPoint, rand01, rand2, valueNoise } from './terrain/noise';
-import {
-  buildBlends,
-  buildMaterials,
-  buildTextures,
-  buildTints,
-  TINT_STEPS,
-} from './terrain/setup';
-import type { MaterialTexture, TileInfo } from './terrain/tile';
-import { TERRAIN_PAINT, type MaterialPaint } from './world-palette';
+import { PALETTE, TILE } from '../style/tokens';
+import type { Camera } from './iso';
+import { wrapIndex } from './torus';
 
 const HALF_W = TILE.w / 2;
 const HALF_H = TILE.h / 2;
-/** Baked-image padding so tall props and the crust are not clipped. */
-const PAD_X = 8;
-const PAD_TOP = 30;
-const PAD_BOTTOM = 18;
 
-/** A pre-baked planet surface. */
+/** `oc_chunk` calls allowed per frame (each is a postcard decode of ~5 KB). */
+const FETCH_PER_FRAME = 4;
+/** Wall-clock budget for chunk painting, in milliseconds per frame. */
+const BAKE_MS_PER_FRAME = 4;
+/** New canvases a frame may create for chunks that are already on screen. */
+const BAKE_STARTS_ON_SCREEN = 2;
+/** New canvases a frame may create for the look-ahead ring. */
+const BAKE_STARTS_LOOKAHEAD = 1;
+/** Pan, in tiles, below which no direction is trusted. */
+const LEAD_MIN_TILES = 1;
+/** One-frame move, in tiles, past which the camera jumped rather than panned. */
+const TELEPORT_TILES = 96;
+
+/** Terrain counters for the debug overlay. */
+export interface TerrainStats {
+  /** Chunks touching the viewport this frame. */
+  readonly visible: number;
+  /** Resident canvases. */
+  readonly surfaces: number;
+  /** Resident canvas pixels. */
+  readonly pixels: number;
+  /** Chunks still mid-bake. */
+  readonly pending: number;
+  /** Chunks on screen with no canvas at all: these draw as placeholder diamonds. */
+  readonly cold: number;
+  /** `oc_chunk` calls so far. */
+  readonly fetches: number;
+  /** Resident decoded chunk records. */
+  readonly records: number;
+}
+
+/** The streamed planet surface. */
 export class TerrainLayer {
-  /** Screen-space bounds of the baked image. */
-  public readonly originX: number;
-  /** Screen-space bounds of the baked image. */
-  public readonly originY: number;
-  /** Baked image width in pixels. */
-  public readonly width: number;
-  /** Baked image height in pixels. */
-  public readonly height: number;
+  private readonly store: ChunkStore;
+  private readonly painter: TilePainter;
+  private readonly cache: SurfaceCache;
+  private readonly edge: number;
+  private readonly geo: ReturnType<typeof chunkGeometry>;
+  private visible: VisibleChunk[] = [];
+  private ring: VisibleChunk[] = [];
+  private keep = new Set<number>();
+  /** Camera signature of the last visible-set rebuild. */
+  private signature = '';
+  /** Camera position last frame, in tiles, or `null` before the first frame. */
+  private lastCentre: { x: number; y: number } | null = null;
+  /** Unit step of the current pan per chunk axis: `-1`, `0` or `1`. */
+  private lead = { x: 0, y: 0 };
 
-  private readonly canvas: HTMLCanvasElement;
-  /** Effective material index per tile, after the companion mask. */
-  private readonly material: Int16Array;
-  /** Source material index per tile, straight from the generated map. */
-  private readonly source: Int16Array;
-  /** Per-material, per-jitter-step fill colours. */
-  private readonly tints: string[][];
-  /** Host/companion colour blends for masked tiles. */
-  private readonly blends: readonly (readonly MaterialPaint[])[];
-  private readonly textures: readonly MaterialTexture[];
-
-  public constructor(map: MapView) {
-    this.width = (map.w + map.h) * HALF_W + PAD_X * 2;
-    this.height = (map.w + map.h) * HALF_H + PAD_TOP + PAD_BOTTOM;
-    this.originX = map.h * HALF_W + PAD_X;
-    this.originY = PAD_TOP;
-
-    const built = buildMaterials(map);
-    this.source = built.source;
-    this.material = built.material;
-    this.tints = buildTints();
-    this.blends = buildBlends();
-    this.textures = buildTextures();
-
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = Math.ceil(this.width);
-    this.canvas.height = Math.ceil(this.height);
-    const ctx = this.canvas.getContext('2d');
-    if (!ctx) throw new Error('terrain: no 2d context');
-    ctx.imageSmoothingEnabled = false;
-    this.bake(ctx, map);
+  public constructor(map: MapView, source: ChunkSource | null) {
+    this.store = new ChunkStore(map, source);
+    this.painter = new TilePainter(this.store);
+    this.cache = new SurfaceCache(this.store.chunksX, this.store.chunksY);
+    this.edge = this.store.chunkEdge;
+    this.geo = chunkGeometry(this.edge);
   }
 
-  /** Draw the baked surface with the camera offset applied. */
-  public draw(ctx: CanvasRenderingContext2D, camX: number, camY: number): void {
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.canvas, Math.round(camX - this.originX), Math.round(camY - this.originY));
+  /** Effective terrain material at a wrapped tile, or `-1` when not resident. */
+  public material(tx: number, ty: number): number {
+    return this.store.material(tx, ty);
   }
 
-  // ------------------------------------------------------------------- bake
-
-  private bake(ctx: CanvasRenderingContext2D, map: MapView): void {
-    ctx.fillStyle = PALETTE.void;
-    ctx.fillRect(0, 0, this.width, this.height);
-    this.bakeTops(ctx, map);
-    this.bakeEdges(ctx, map);
-    this.bakeProps(ctx, map);
+  /** Make sure the chunk containing a tile is resident (for the scan panel). */
+  public prefetch(tx: number, ty: number): void {
+    this.store.ensure(
+      Math.floor(wrapIndex(tx, this.store.chunksX * this.edge) / this.edge),
+      Math.floor(wrapIndex(ty, this.store.chunksY * this.edge) / this.edge),
+    );
   }
 
-  /** Screen centre of a tile's rhombus. */
-  private centre(tx: number, ty: number): [number, number] {
-    return [this.originX + (tx - ty) * HALF_W, this.originY + (tx + ty + 1) * HALF_H];
+  /** Diagnostic dump of one chunk (`?debug=1` support hook). */
+  public debugChunk(cx: number, cy: number): ReturnType<ChunkStore['debugChunk']> {
+    return this.store.debugChunk(cx, cy);
   }
 
-  private keyAt(index: number): number {
-    return this.material[index] ?? 0;
-  }
-
-  /** The paint of a tile: the host recipe, or its blend with the companion. */
-  private paintAt(index: number): MaterialPaint {
-    const effective = this.keyAt(index);
-    const self = this.source[index] ?? effective;
-    if (effective !== self) {
-      const row = this.blends[self] ?? this.blends[0];
-      const blend = row?.[effective];
-      if (blend) return blend;
+  /** Counters for the debug overlay. */
+  public stats(): TerrainStats {
+    let pending = 0;
+    let cold = 0;
+    for (const ref of this.visible) {
+      const surface = this.cache.get(ref.cx, ref.cy);
+      if (!surface) cold += 1;
+      else if (!surface.ready) pending += 1;
     }
-    return TERRAIN_PAINT[TERRAIN_KEYS[effective] ?? 'basalt'];
-  }
-
-  private tileInfo(ctx: CanvasRenderingContext2D, map: MapView, tx: number, ty: number): TileInfo {
-    const index = ty * map.w + tx;
-    const [cx, cy] = this.centre(tx, ty);
     return {
-      ctx,
-      cx,
-      cy,
-      rx: HALF_W,
-      ry: HALF_H,
-      tx,
-      ty,
-      paint: this.paintAt(index),
-      source: this.source[index] ?? 0,
-      materialAt: (dx, dy) => {
-        const nx = tx + dx;
-        const ny = ty + dy;
-        if (nx < 0 || ny < 0 || nx >= map.w || ny >= map.h) return -1;
-        return this.keyAt(ny * map.w + nx);
-      },
+      visible: this.visible.length,
+      surfaces: this.cache.size,
+      pixels: this.cache.pixelCount,
+      pending,
+      cold,
+      fetches: this.store.fetches,
+      records: this.store.resident,
     };
   }
 
-  /** Rim darkening: the island's edge band steps down over 3 tiles. */
-  private rimFactor(tx: number, ty: number, map: MapView): number {
-    const d = Math.min(tx, ty, map.w - 1 - tx, map.h - 1 - ty);
-    if (d === 0) return 0.58;
-    if (d === 1) return 0.73;
-    if (d === 2) return 0.88;
-    return 1;
+  /**
+   * Advance streaming for this frame: visible set, data fetch, bake slices and
+   * eviction. Cheap when the camera has not moved into a new chunk.
+   */
+  public update(cam: Camera): void {
+    this.trackPan(cam);
+    this.refreshVisible(cam);
+    this.fetchData();
+    this.advanceBakes();
+    this.cache.trim(this.keep);
   }
 
-  /** Correlated value step: neighbouring tiles mostly share a tone. */
-  private tintFor(index: number, tx: number, ty: number): string {
-    const rows = this.tints;
-    const row = rows[this.keyAt(index)] ?? rows[0] ?? [];
-    const band = valueNoise(tx, ty, 3, 0x4f1) / 1024;
-    const wobble = (rand01(tx, ty, 0x3b7) - 0.5) * 1.4;
-    const level = Math.round(band * (TINT_STEPS.length - 1) + wobble);
-    const clamped = Math.min(TINT_STEPS.length - 1, Math.max(0, level));
-    return row[clamped] ?? '#000000';
-  }
-
-  private bakeTops(ctx: CanvasRenderingContext2D, map: MapView): void {
-    for (let sum = 0; sum <= map.w + map.h - 2; sum += 1) {
-      for (let ty = Math.max(0, sum - map.w + 1); ty <= Math.min(map.h - 1, sum); ty += 1) {
-        this.paintTop(ctx, map, sum - ty, ty);
+  /**
+   * Bake every visible chunk synchronously.
+   *
+   * Used once at boot behind the loading veil: the first frame the player sees
+   * has a complete surface under the colony, so there are no placeholder blocks
+   * in the opening shot.
+   */
+  public warm(cam: Camera): void {
+    this.refreshVisible(cam);
+    for (const ref of this.visible) {
+      this.store.ensure(ref.cx, ref.cy);
+      this.store.ensureRing(ref.cx, ref.cy);
+    }
+    for (const ref of this.visible) {
+      const surface = this.ensureSurface(ref);
+      if (!surface) continue;
+      let guard = 0;
+      while (!surface.ready && guard < 16) {
+        surface.cook(1000);
+        guard += 1;
       }
+    }
+    this.cache.trim(this.keep);
+  }
+
+  /** Draw every visible chunk, back to front. */
+  public draw(ctx: CanvasRenderingContext2D, cam: Camera): void {
+    const ordered = [...this.visible].sort((a, b) => a.wx + a.wy - (b.wx + b.wy));
+    const viewW = cam.width / cam.zoom;
+    const viewH = cam.height / cam.zoom;
+    ctx.imageSmoothingEnabled = false;
+    for (const ref of ordered) {
+      const rx = ref.wx * this.edge - cam.centreX;
+      const ry = ref.wy * this.edge - cam.centreY;
+      const px = (rx - ry) * HALF_W - this.geo.ox + cam.ox;
+      const py = (rx + ry + 1) * HALF_H - this.geo.oy + cam.oy;
+      const surface = this.cache.get(ref.cx, ref.cy);
+      if (surface) surface.blitTo(ctx, px, py, viewW, viewH);
+      else this.placeholder(ctx, px, py, ref);
     }
   }
 
-  private paintTop(ctx: CanvasRenderingContext2D, map: MapView, tx: number, ty: number): void {
-    const index = ty * map.w + tx;
-    const key = this.keyAt(index);
-    const paint = this.paintAt(index);
-    const [cx, cy] = this.centre(tx, ty);
-    const info = this.tileInfo(ctx, map, tx, ty);
-    const fill = shade(this.tintFor(index, tx, ty), this.rimFactor(tx, ty, map));
+  // ------------------------------------------------------------------ streaming
 
-    ctx.save();
-    clipDiamond(ctx, cx, cy, HALF_W, HALF_H);
-    ctx.fillStyle = fill;
-    diamondPath(ctx, cx, cy, HALF_W, HALF_H);
-    ctx.fill();
-    const texture = this.textures[key];
-    if (texture) texture(info);
-    // A seam or vein owns the whole tile: no competing ground marks under it.
-    const bare =
-      (map.decor[index] ?? 0) === 0 &&
-      (map.deposit[index] ?? 0) === 0 &&
-      (map.coal[index] ?? 0) === 0;
-    if (bare) paintGroundMark(info);
-    this.paintDither(ctx, info, key);
-    ctx.restore();
-
-    this.paintSeams(ctx, info, paint);
+  /**
+   * Remember which way the camera is going.
+   *
+   * A pan is what turns the look-ahead ring into a decision: the chunk the
+   * camera is about to reach is worth a ring slot of its own, while the ring
+   * behind it is only insurance. A jump is not a pan -- after a radar teleport
+   * the camera is standing still, so the plain nearest-first order (centre of the
+   * screen first) is the right one, and it has to not be mistaken for a
+   * hundred-chunk-per-frame pan.
+   */
+  private trackPan(cam: Camera): void {
+    const last = this.lastCentre;
+    this.lastCentre = { x: cam.centreX, y: cam.centreY };
+    if (!last) return;
+    const dx = cam.centreX - last.x;
+    const dy = cam.centreY - last.y;
+    if (Math.abs(dx) > TELEPORT_TILES || Math.abs(dy) > TELEPORT_TILES) {
+      this.lead = { x: 0, y: 0 };
+      return;
+    }
+    this.lead = {
+      x: Math.abs(dx) >= LEAD_MIN_TILES ? Math.sign(dx) : 0,
+      y: Math.abs(dy) >= LEAD_MIN_TILES ? Math.sign(dy) : 0,
+    };
   }
 
-  /** Sparse checker fringe of mixed gravel along every material boundary. */
-  private paintDither(ctx: CanvasRenderingContext2D, info: TileInfo, key: number): void {
-    const { rx, ry } = info;
-    // fromA, fromB, toA, toB, inwardA, inwardB, neighbour dx, neighbour dy
-    const edges: readonly [number, number, number, number, number, number, number, number][] = [
-      [0, 1, 1, 1, 0, -1, 0, 1],
-      [1, 0, 1, 1, -1, 0, 1, 0],
-      [0, 0, 1, 0, 0, 1, 0, -1],
-      [0, 0, 0, 1, 1, 0, -1, 0],
-    ];
-    const self = info.paint;
-    for (const [fa, fb, ta, tb, ia, ib, dx, dy] of edges) {
-      const neighbour = info.materialAt(dx, dy);
-      if (neighbour < 0 || neighbour === key) continue;
-      const other = TERRAIN_PAINT[TERRAIN_KEYS[neighbour] ?? 'basalt'];
-      const color = shade(mix(self.base, other.base, 0.58), 0.9);
-      const steps = 26;
-      const depth = 2;
-      for (let i = 0; i < steps; i += 1) {
-        const s = (i + 0.5) / steps;
-        const a = fa + (ta - fa) * s;
-        const b = fb + (tb - fb) * s;
-        for (let d = 1; d <= depth; d += 1) {
-          if ((i + d * 2) % 3 !== 0) continue;
-          const aa = a + ia * (d * 0.032);
-          const bb = b + ib * (d * 0.032);
-          const p = isoPoint(info.cx, info.cy, rx, ry, aa, bb);
-          ctx.fillStyle = color;
-          ctx.fillRect(Math.round(p[0]), Math.round(p[1]), 1, 1);
-        }
-      }
+  /** Rebuild the visible set and look-ahead ring when the camera leaves the rect. */
+  private refreshVisible(cam: Camera): void {
+    const sig = `${Math.floor(cam.centreX / this.edge)}:${Math.floor(cam.centreY / this.edge)}:${Math.round(cam.zoom * 100)}:${Math.round(cam.width / 32)}:${Math.round(cam.height / 32)}`;
+    if (sig === this.signature) return;
+    this.signature = sig;
+    const plan = planViewport(
+      cam,
+      this.edge,
+      this.store.chunksX,
+      this.store.chunksY,
+      this.lead,
+      (cx, cy) => this.cache.key(cx, cy),
+    );
+    this.visible = plan.visible;
+    this.ring = plan.ring;
+    this.keep = plan.keep;
+  }
+  /**
+   * Pull a few `oc_chunk` records per frame, in the order the frame needs them.
+   *
+   * 1. the records of the chunks on screen, nearest first -- a canvas cannot
+   *    start without its own tiles;
+   * 2. the two-tile halo the companion mask reads through (a missing halo only
+   *    costs border detail, it clamps);
+   * 3. the ring, which is where the camera is heading.
+   */
+  private fetchData(): void {
+    let budget = FETCH_PER_FRAME;
+    for (const ref of this.visible) {
+      if (budget <= 0) return;
+      const before = this.store.fetches;
+      this.store.ensure(ref.cx, ref.cy);
+      budget -= this.store.fetches - before;
+    }
+    for (const ref of this.visible) {
+      if (budget <= 0) return;
+      const before = this.store.fetches;
+      // The 3x3 neighbourhood, not just the chunk: the companion mask halo and
+      // the cliff/shore probes both read one tile into the neighbours.
+      this.store.ensureRing(ref.cx, ref.cy);
+      budget -= this.store.fetches - before;
+    }
+    for (const ref of this.ring) {
+      if (budget <= 0) return;
+      const before = this.store.fetches;
+      this.store.ensure(ref.cx, ref.cy);
+      budget -= this.store.fetches - before;
     }
   }
 
-  /** Hard 1px seam on the two lower tile edges. */
-  private paintSeams(ctx: CanvasRenderingContext2D, info: TileInfo, paint: MaterialPaint): void {
-    const { cx, cy, rx, ry } = info;
-    ctx.strokeStyle = paint.seam;
-    ctx.lineWidth = 1;
+  /**
+   * Advance the bake: cover what the screen needs, then look ahead, then cook.
+   *
+   * Creation comes first for a reason. Cooking one 32x32 chunk takes several
+   * milliseconds and the cook loop stops the moment the frame budget is gone, so
+   * if cooking ran first a frame could spend every millisecond it had on the
+   * chunk already on screen and leave the next one a flat placeholder diamond.
+   * Starting the canvas first is what makes "the chunk the camera is panning
+   * into is already painted" actually hold.
+   */
+  private advanceBakes(): void {
+    const deadline = performance.now() + BAKE_MS_PER_FRAME;
+    const estimate = this.geo.w * this.geo.h;
+    let onScreenStarts = 0;
+    for (const ref of this.visible) {
+      if (onScreenStarts >= BAKE_STARTS_ON_SCREEN) break;
+      if (this.cache.get(ref.cx, ref.cy)) continue;
+      if (this.ensureSurface(ref)) onScreenStarts += 1;
+    }
+    // Look-ahead: one canvas per frame, and only while the pixel budget has room
+    // left over, so the ring never evicts a chunk that is on screen.
+    let lookaheadStarts = 0;
+    for (const ref of this.ring) {
+      if (lookaheadStarts >= BAKE_STARTS_LOOKAHEAD) break;
+      if (this.cache.get(ref.cx, ref.cy)) continue;
+      if (this.cache.pixelCount + estimate > BAKE_PIXEL_BUDGET) break;
+      if (this.ensureSurface(ref)) lookaheadStarts += 1;
+    }
+    for (const ref of [...this.visible, ...this.ring]) {
+      const surface = this.cache.get(ref.cx, ref.cy);
+      if (!surface || surface.ready) continue;
+      surface.cook(Math.max(0.5, deadline - performance.now()));
+      if (performance.now() >= deadline) break;
+    }
+  }
+
+  private ensureSurface(ref: VisibleChunk): ChunkSurface | null {
+    const hit = this.cache.get(ref.cx, ref.cy);
+    if (hit) return hit;
+    // Halo first: the companion mask reads two tiles into the neighbours, so the
+    // ring has to be resident before the material table is derived.
+    this.store.ensureRing(ref.cx, ref.cy);
+    const loaded = this.store.ensure(ref.cx, ref.cy);
+    if (!loaded) return null;
+    const surface = new ChunkSurface(
+      ref.cx,
+      ref.cy,
+      this.edge,
+      this.store,
+      this.painter,
+      loaded.dominant,
+    );
+    this.cache.put(surface, this.keep);
+    return surface;
+  }
+
+  /** Flat diamond shown where a chunk has no canvas yet. */
+  private placeholder(
+    ctx: CanvasRenderingContext2D,
+    px: number,
+    py: number,
+    ref: VisibleChunk,
+  ): void {
+    const tone = this.store.dominant(ref.cx, ref.cy) ?? PALETTE.panel2;
+    const cx = px + this.geo.ox;
+    const cy = py + this.geo.oy + (this.edge - 1) * HALF_H;
+    const rx = this.edge * HALF_W;
+    const ry = this.edge * HALF_H;
     ctx.beginPath();
-    ctx.moveTo(crisp(cx - rx), crisp(cy));
-    ctx.lineTo(crisp(cx), crisp(cy + ry));
-    ctx.lineTo(crisp(cx + rx), crisp(cy));
-    ctx.stroke();
-  }
-
-  // ------------------------------------------------------------------ edges
-
-  private heights(map: MapView, tx: number, ty: number): number {
-    if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) return 0;
-    return map.height[ty * map.w + tx] ?? 0;
-  }
-
-  private bakeEdges(ctx: CanvasRenderingContext2D, map: MapView): void {
-    for (let sum = 0; sum <= map.w + map.h - 2; sum += 1) {
-      for (let ty = Math.max(0, sum - map.w + 1); ty <= Math.min(map.h - 1, sum); ty += 1) {
-        const tx = sum - ty;
-        const info = this.tileInfo(ctx, map, tx, ty);
-        const h = this.heights(map, tx, ty);
-        const dropSouth = ty + 1 < map.h ? Math.max(0, h - this.heights(map, tx, ty + 1)) : 0;
-        const dropEast = tx + 1 < map.w ? Math.max(0, h - this.heights(map, tx + 1, ty)) : 0;
-        if (dropSouth > 0 || dropEast > 0) paintCliff(ctx, info, dropSouth, dropEast);
-        paintShore(ctx, info);
-        paintMapRim(ctx, info, ty === map.h - 1, tx === map.w - 1, ty === 0, tx === 0);
-      }
-    }
-  }
-
-  // ------------------------------------------------------------------ props
-
-  private bakeProps(ctx: CanvasRenderingContext2D, map: MapView): void {
-    for (let sum = 0; sum <= map.w + map.h - 2; sum += 1) {
-      for (let ty = Math.max(0, sum - map.w + 1); ty <= Math.min(map.h - 1, sum); ty += 1) {
-        const tx = sum - ty;
-        const index = ty * map.w + tx;
-        const info = this.tileInfo(ctx, map, tx, ty);
-        if (this.keyAt(index) === SURFACE_INDEX.crystal) paintCrystalClusters(info);
-        const decor = map.decor[index] ?? 0;
-        const deposit = map.deposit[index] ?? 0;
-        // Coal seams share the prop pass with ore veins: same one-tile budget,
-        // opposite palette (see `decor.coalSeam`).
-        const coal = map.coal[index] ?? 0;
-        const golden = rand2(tx, ty, 0xb7) > 0.74;
-        if (decor > 0) paintDecorTile(info, decor, deposit, golden, coal);
-        else if (deposit > 0 || coal > 0) paintDecorTile(info, 0, deposit, golden, coal);
-      }
-    }
+    ctx.moveTo(cx, cy - ry);
+    ctx.lineTo(cx + rx, cy);
+    ctx.lineTo(cx, cy + ry);
+    ctx.lineTo(cx - rx, cy);
+    ctx.closePath();
+    ctx.fillStyle = tone;
+    ctx.fill();
   }
 }

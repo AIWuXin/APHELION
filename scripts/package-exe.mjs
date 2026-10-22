@@ -38,7 +38,7 @@ function run(command, args, label) {
   }
 }
 
-/** `0.1.0-a0` (semver) → `0.1.0a0` (display, matches oc_protocol::PRODUCT_VERSION). */
+/** `0.1.0-a1` (semver) → `0.1.0a1` (display, matches oc_protocol::PRODUCT_VERSION). */
 function displayVersion() {
   const cargo = readFileSync(join(root, 'Cargo.toml'), 'utf8');
   const match = cargo.match(/^version\s*=\s*"([^"]+)"/m);

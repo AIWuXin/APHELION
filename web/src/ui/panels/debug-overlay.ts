@@ -30,6 +30,9 @@ export class DebugOverlay {
       ['hash', '--'],
       ['ent', '--'],
       ['snap', '--'],
+      ['cam', '--'],
+      ['tile', '--'],
+      ['chunk', '--'],
       ['build', '--'],
     ];
     for (const [key, initial] of defs) {
@@ -57,6 +60,11 @@ export class DebugOverlay {
     this.set('hash', `0x${(s.hash >>> 0).toString(16).padStart(8, '0')}`);
     this.set('ent', `B${s.buildings.length} U${s.units.length} S${s.orbital.ships.length} FX${s.effects.length} BM${s.beams.length}`);
     this.set('snap', `${dbg.snapshotBytes}B`);
+    // Coordinates are printed **wrapped** (0..10239), never as the raw scroll
+    // offset the camera happens to hold: the planet has no seam to run off.
+    this.set('cam', dbg.anchor);
+    this.set('tile', dbg.hover);
+    this.set('chunk', dbg.terrain);
     this.set('build', dbg.banner);
     const fps = this.rows.get('fps');
     if (fps) setClass(fps.value, 'is-warn', dbg.fps > 0 && dbg.fps < 50);

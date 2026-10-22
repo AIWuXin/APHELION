@@ -1,23 +1,27 @@
 /**
- * Cliff lips and the island rim.
+ * Cliff lips and shore foam.
  *
- * A tile whose south or east neighbour is one elevation step lower shows a
- * 3-4px rock face on that edge: lit face (0.86) on the screen-left side,
- * shadow face (0.68) on the screen-right side, a 1px bright rim on the top lip
- * and a 1px dark seam at the base. This is what gives the flat grid real relief
- * without moving any tile off the lattice.
+ * A tile whose south or east neighbour is one elevation step lower shows a 3-4px
+ * rock face on that edge: lit face (0.86) on the screen-left side, shadow face
+ * (0.68) on the screen-right side, a 1px bright rim on the top lip and a 1px dark
+ * seam at the base. This is what gives the flat grid real relief without moving
+ * any tile off the lattice.
  *
- * The same helper draws the dark rock slab the whole map sits on, so the
- * rectangular cut of the world edge reads as deliberate.
+ * There is no map rim any more: the planet wraps, so the old "rock slab under the
+ * island" has nothing to sit under -- the world has no edge to cut.
  */
 
-import { LIGHT, mix, rgba, shade, PALETTE } from '../../style/tokens';
-import { CRUST, TERRAIN_PAINT } from '../world-palette';
+import { LIGHT, mix, rgba, shade } from '../../style/tokens';
+import { TERRAIN_PAINT } from '../world-palette';
 import { TERRAIN_KEYS } from '../../generated/content-keys';
-import { dot, rand01, rand2 } from './noise';
+import { dot, rand2 } from './noise';
 import type { TileInfo } from './tile';
-
-const BRINE = TERRAIN_KEYS.indexOf('brine');
+/** Every material that reads as open water, for the foam line. */
+const WATER = new Set([
+  TERRAIN_KEYS.indexOf('brine'),
+  TERRAIN_KEYS.indexOf('shallow'),
+  TERRAIN_KEYS.indexOf('deep'),
+]);
 
 /** One vertical rock face hanging below a tile edge. */
 function face(
@@ -115,71 +119,20 @@ export function paintCliff(
   }
 }
 
-/** Draw the foam line on every edge shared with brine. */
+/** Draw the foam line on every land edge shared with open water. */
 export function paintShore(ctx: CanvasRenderingContext2D, t: TileInfo): void {
+  // Water tiles never draw their own foam: the generator can put a shallow seam
+  // inside a deep basin, and foaming that seam would dot the whole ocean.
+  if (WATER.has(t.source)) return;
   const { cx, cy, rx, ry, materialAt } = t;
   const seed = t.tx * 13 + t.ty * 7;
   const n = [cx, cy - ry] as const;
   const e = [cx + rx, cy] as const;
   const s = [cx, cy + ry] as const;
   const w = [cx - rx, cy] as const;
-  if (materialAt(0, -1) === BRINE) foam(ctx, n[0], n[1], e[0], e[1], seed + 0);
-  if (materialAt(1, 0) === BRINE) foam(ctx, e[0], e[1], s[0], s[1], seed + 1);
-  if (materialAt(0, 1) === BRINE) foam(ctx, s[0], s[1], w[0], w[1], seed + 2);
-  if (materialAt(-1, 0) === BRINE) foam(ctx, w[0], w[1], n[0], n[1], seed + 3);
-}
-
-/** The dark rock slab the island sits on, plus a steel top boundary. */
-export function paintMapRim(
-  ctx: CanvasRenderingContext2D,
-  t: TileInfo,
-  atSouthEdge: boolean,
-  atEastEdge: boolean,
-  atNorthEdge: boolean,
-  atWestEdge: boolean,
-): void {
-  const { cx, cy, rx, ry } = t;
-  const n = [cx, cy - ry] as const;
-  const e = [cx + rx, cy] as const;
-  const s = [cx, cy + ry] as const;
-  const w = [cx - rx, cy] as const;
-  if (atSouthEdge) face(ctx, w[0], w[1], s[0], s[1], 16, CRUST.left, 1.0, 0x51);
-  if (atEastEdge) face(ctx, s[0], s[1], e[0], e[1], 16, CRUST.right, 1.0, 0x77);
-  // A 1px steel line along the two upper cut sides, so the boundary reads as
-  // a deliberate edge rather than a missing texture.
-  ctx.strokeStyle = rgba(PALETTE.lineBright, 0.85);
-  ctx.lineWidth = 1;
-  if (atNorthEdge) {
-    ctx.beginPath();
-    ctx.moveTo(Math.round(n[0]) + 0.5, Math.round(n[1]) + 0.5);
-    ctx.lineTo(Math.round(e[0]) + 0.5, Math.round(e[1]) + 0.5);
-    ctx.stroke();
-  }
-  if (atWestEdge) {
-    ctx.beginPath();
-    ctx.moveTo(Math.round(w[0]) + 0.5, Math.round(w[1]) + 0.5);
-    ctx.lineTo(Math.round(n[0]) + 0.5, Math.round(n[1]) + 0.5);
-    ctx.stroke();
-  }
-  // A 2px dark step just under the steel line keeps the cut from glowing.
-  ctx.fillStyle = rgba('#000000', 0.22);
-  if (atNorthEdge) {
-    ctx.beginPath();
-    ctx.moveTo(n[0], n[1]);
-    ctx.lineTo(e[0], e[1]);
-    ctx.lineTo(e[0], e[1] + 2);
-    ctx.lineTo(n[0], n[1] + 2);
-    ctx.closePath();
-    ctx.fill();
-  }
-  if (atWestEdge) {
-    ctx.beginPath();
-    ctx.moveTo(w[0], w[1]);
-    ctx.lineTo(n[0], n[1]);
-    ctx.lineTo(n[0], n[1] + 2);
-    ctx.lineTo(w[0], w[1] + 2);
-    ctx.closePath();
-    ctx.fill();
-  }
-  void rand01;
+  const water = (dx: number, dy: number): boolean => WATER.has(materialAt(dx, dy));
+  if (water(0, -1)) foam(ctx, n[0], n[1], e[0], e[1], seed + 0);
+  if (water(1, 0)) foam(ctx, e[0], e[1], s[0], s[1], seed + 1);
+  if (water(0, 1)) foam(ctx, s[0], s[1], w[0], w[1], seed + 2);
+  if (water(-1, 0)) foam(ctx, w[0], w[1], n[0], n[1], seed + 3);
 }

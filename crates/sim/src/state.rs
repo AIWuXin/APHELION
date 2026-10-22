@@ -3,131 +3,168 @@
 //! Every field here is part of the deterministic state: no floats, no
 //! wall-clock, no hash maps with non-deterministic iteration order.
 
-use oc_iso::fixed::Fp;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 
-/// The generated planet surface plus build occupancy.
+use oc_iso::fixed::Fp;
+use oc_iso::torus;
+use oc_protocol::ChunkView;
+
+use crate::chunk::{ChunkCache, TileData};
+
+/// Tile key used by the sparse occupancy table: `y << 16 | x`.
+const fn tile_key(x: i32, y: i32) -> u32 {
+    ((y as u32) << 16) | x as u32
+}
+
+/// The planet surface plus build occupancy.
+///
+/// Terrain is **not** stored per tile: [`ChunkCache`] regenerates a 32x32 block
+/// from `(seed, home, chunk)` on demand and keeps the hot ones resident, so a
+/// 10240 x 10240 planet costs about a megabyte instead of a gigabyte. Only
+/// building occupancy is materialised, and only for the tiles a structure
+/// actually owns, so occupancy stays proportional to the colony, not the planet.
+///
+/// Coordinates wrap on both axes: every query below accepts any `i32` and folds
+/// it into `0..MAP_W` / `0..MAP_H`, which is why a footprint anchored on the
+/// seam is a normal placement rather than a special case.
 #[derive(Clone, Debug)]
 pub struct Map {
-    /// Width in tiles.
+    /// Planet circumference along x, in tiles.
     pub w: i32,
-    /// Height in tiles.
+    /// Planet circumference along y, in tiles.
     pub h: i32,
-    /// Terrain material per tile.
-    pub material: Vec<u8>,
-    /// Elevation step per tile.
-    pub height: Vec<i8>,
-    /// Decoration per tile.
-    pub decor: Vec<u8>,
-    /// Mineral richness per tile.
-    pub deposit: Vec<u8>,
-    /// Coal seam richness per tile.
-    pub coal: Vec<u8>,
-    /// Building id occupying each tile (`0` = free).
-    pub occupied: Vec<u32>,
+    /// World seed the surface is generated from.
+    pub seed: u32,
+    /// Colony anchor tile (north-west corner of the hub footprint).
+    pub start: (i32, i32),
+    /// Building id occupying a tile (`0`/absent = free), sparse.
+    pub occupied: BTreeMap<u32, u32>,
+    /// Resident chunk cache, generated on demand.
+    cache: RefCell<ChunkCache>,
 }
 
 impl Map {
-    /// Allocate an empty map of the given size.
+    /// Allocate the planet surface for a seed and its colony anchor.
     #[must_use]
-    pub fn new(w: i32, h: i32) -> Self {
-        let n = (w * h) as usize;
+    pub fn new(seed: u32, start: (i32, i32)) -> Self {
         Self {
-            w,
-            h,
-            material: vec![0; n],
-            height: vec![0; n],
-            decor: vec![0; n],
-            deposit: vec![0; n],
-            coal: vec![0; n],
-            occupied: vec![0; n],
+            w: oc_iso::grid::MAP_W,
+            h: oc_iso::grid::MAP_H,
+            seed,
+            start,
+            occupied: BTreeMap::new(),
+            cache: RefCell::new(ChunkCache::new(seed, start)),
         }
     }
 
-    /// Row-major index of a tile, if inside the map.
+    /// Full tile data at a wrapped coordinate.
     #[must_use]
-    pub fn index(&self, x: i32, y: i32) -> Option<usize> {
-        if x < 0 || y < 0 || x >= self.w || y >= self.h {
-            None
-        } else {
-            Some((y * self.w + x) as usize)
-        }
+    pub fn tile(&self, x: i32, y: i32) -> TileData {
+        self.cache.borrow_mut().tile(x, y)
     }
 
-    /// Terrain material at a tile (`T_BASALT` when out of bounds).
+    /// Terrain material at a tile.
     #[must_use]
     pub fn material_at(&self, x: i32, y: i32) -> u8 {
-        self.index(x, y).map_or(0, |i| self.material[i])
+        self.tile(x, y).material
+    }
+
+    /// Elevation step at a tile: `-2` deep water, `-1` shallow water, `0..=3`.
+    #[must_use]
+    pub fn height_at(&self, x: i32, y: i32) -> i8 {
+        self.tile(x, y).height
+    }
+
+    /// Decoration index at a tile.
+    #[must_use]
+    pub fn decor_at(&self, x: i32, y: i32) -> u8 {
+        self.tile(x, y).decor
     }
 
     /// Mineral richness at a tile.
     #[must_use]
     pub fn deposit_at(&self, x: i32, y: i32) -> u8 {
-        self.index(x, y).map_or(0, |i| self.deposit[i])
+        self.tile(x, y).deposit
     }
 
     /// Coal seam richness at a tile.
     #[must_use]
     pub fn coal_at(&self, x: i32, y: i32) -> u8 {
-        self.index(x, y).map_or(0, |i| self.coal[i])
+        self.tile(x, y).coal
     }
 
-    /// Is the tile inside the map and free of buildings?
+    /// Building id owning a tile, or `0` when free.
+    #[must_use]
+    pub fn occupant(&self, x: i32, y: i32) -> u32 {
+        let (x, y) = torus::wrap(x, y);
+        self.occupied.get(&tile_key(x, y)).copied().unwrap_or(0)
+    }
+
+    /// Is the tile free of buildings?
     #[must_use]
     pub fn is_free(&self, x: i32, y: i32) -> bool {
-        self.index(x, y).is_some_and(|i| self.occupied[i] == 0)
+        self.occupant(x, y) == 0
     }
 
     /// Mark or clear the owning building for a tile.
     pub fn set_occupied(&mut self, x: i32, y: i32, id: u32) {
-        if let Some(i) = self.index(x, y) {
-            self.occupied[i] = id;
+        let (x, y) = torus::wrap(x, y);
+        let key = tile_key(x, y);
+        if id == 0 {
+            self.occupied.remove(&key);
+        } else {
+            self.occupied.insert(key, id);
         }
     }
 
-    /// Mark a whole footprint.
+    /// Mark a whole footprint, wrapping the seam.
     pub fn fill(&mut self, tx: i32, ty: i32, size: i32, id: u32) {
-        for y in ty..ty + size {
-            for x in tx..tx + size {
-                self.set_occupied(x, y, id);
-            }
+        let tiles: Vec<(i32, i32)> = torus::footprint(tx, ty, size).collect();
+        for (x, y) in tiles {
+            self.set_occupied(x, y, id);
         }
     }
 
     /// Does any tile of the footprint already have an owner?
     #[must_use]
     pub fn footprint_taken(&self, tx: i32, ty: i32, size: i32) -> bool {
-        for y in ty..ty + size {
-            for x in tx..tx + size {
-                if !self.is_free(x, y) {
-                    return true;
-                }
-            }
-        }
-        false
+        torus::footprint(tx, ty, size).any(|(x, y)| !self.is_free(x, y))
     }
 
     /// Total mineral richness under a footprint (refinery efficiency input).
     #[must_use]
     pub fn footprint_deposit(&self, tx: i32, ty: i32, size: i32) -> i32 {
-        let mut total = 0;
-        for y in ty..ty + size {
-            for x in tx..tx + size {
-                total += i32::from(self.deposit_at(x, y));
-            }
-        }
-        total
+        torus::footprint(tx, ty, size)
+            .map(|(x, y)| i32::from(self.deposit_at(x, y)))
+            .sum()
     }
 
     /// Total coal seam richness under a footprint (extractor efficiency input).
     #[must_use]
     pub fn footprint_coal(&self, tx: i32, ty: i32, size: i32) -> i32 {
-        let mut total = 0;
-        for y in ty..ty + size {
-            for x in tx..tx + size {
-                total += i32::from(self.coal_at(x, y));
-            }
-        }
-        total
+        torus::footprint(tx, ty, size)
+            .map(|(x, y)| i32::from(self.coal_at(x, y)))
+            .sum()
+    }
+
+    /// Wire view of one chunk (generating it if needed). Coordinates wrap.
+    #[must_use]
+    pub fn chunk_view(&self, cx: i32, cy: i32) -> ChunkView {
+        self.cache.borrow_mut().chunk_view(cx, cy)
+    }
+
+    /// Number of chunks currently resident (tests / debug overlay).
+    #[must_use]
+    pub fn loaded_chunks(&self) -> usize {
+        self.cache.borrow().len()
+    }
+
+    /// Is a tile inside a footprint entirely buildable terrain?
+    #[must_use]
+    pub fn footprint_buildable(&self, tx: i32, ty: i32, size: i32) -> bool {
+        torus::footprint(tx, ty, size)
+            .all(|(x, y)| oc_content::terrain::terrain_buildable(self.material_at(x, y)))
     }
 }
 

@@ -27,8 +27,22 @@ pub const T_APRON: u8 = 5;
 pub const T_ROAD: u8 = 6;
 /// Crystal field; unbuildable but pretty.
 pub const T_CRYSTAL: u8 = 7;
+/// Shallow water just off the coast: unbuildable, wadable (T1 simplification).
+pub const T_SHALLOW: u8 = 8;
+/// Deep ocean: unbuildable, and no raid ever lands here.
+pub const T_DEEP: u8 = 9;
+/// Snow field of the frozen bands.
+pub const T_SNOW: u8 = 10;
+/// Permafrost of the cold bands.
+pub const T_TUNDRA: u8 = 11;
+/// Arid desert of the hot dry bands.
+pub const T_DESERT: u8 = 12;
+/// Highland rock: the mineral-bearing biome.
+pub const T_HIGHLAND: u8 = 13;
+/// Dense moss tundra: the wet cold/temperate coastal bands.
+pub const T_MOSSY_TUNDRA: u8 = 14;
 /// Number of terrain materials.
-pub const T_COUNT: u8 = 8;
+pub const T_COUNT: u8 = 15;
 
 /// The table.
 pub static TERRAIN: &[TerrainRow] = &[
@@ -71,6 +85,41 @@ pub static TERRAIN: &[TerrainRow] = &[
         key: "crystal",
         zh: "晶簇地",
         buildable: false,
+    },
+    TerrainRow {
+        key: "shallow",
+        zh: "浅水",
+        buildable: false,
+    },
+    TerrainRow {
+        key: "deep",
+        zh: "深水",
+        buildable: false,
+    },
+    TerrainRow {
+        key: "snow",
+        zh: "雪原",
+        buildable: true,
+    },
+    TerrainRow {
+        key: "tundra",
+        zh: "冻土",
+        buildable: true,
+    },
+    TerrainRow {
+        key: "desert",
+        zh: "干旱砂漠",
+        buildable: true,
+    },
+    TerrainRow {
+        key: "highland",
+        zh: "高地岩",
+        buildable: true,
+    },
+    TerrainRow {
+        key: "mossy-tundra",
+        zh: "茂密苔原",
+        buildable: true,
     },
 ];
 
@@ -141,4 +190,47 @@ pub fn terrain_buildable(t: u8) -> bool {
 #[must_use]
 pub fn terrain_name(t: u8) -> &'static str {
     TERRAIN.get(t as usize).map_or("未知", |r| r.zh)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_original_rows_keep_their_wire_indices() {
+        // Append-only contract: the renderer's material painter and every saved
+        // replay key off these numbers, so new biomes go on the end.
+        assert_eq!(TERRAIN.len(), T_COUNT as usize);
+        assert_eq!(TERRAIN[T_BASALT as usize].key, "basalt");
+        assert_eq!(TERRAIN[T_REGOLITH as usize].key, "regolith");
+        assert_eq!(TERRAIN[T_MOSS as usize].key, "moss");
+        assert_eq!(TERRAIN[T_SAND as usize].key, "sand");
+        assert_eq!(TERRAIN[T_BRINE as usize].key, "brine");
+        assert_eq!(TERRAIN[T_APRON as usize].key, "apron");
+        assert_eq!(TERRAIN[T_ROAD as usize].key, "road");
+        assert_eq!(TERRAIN[T_CRYSTAL as usize].key, "crystal");
+    }
+
+    #[test]
+    fn water_cannot_be_built_on_but_every_land_biome_can() {
+        for row in TERRAIN.iter() {
+            let buildable = matches!(
+                row.key,
+                "basalt"
+                    | "regolith"
+                    | "moss"
+                    | "sand"
+                    | "apron"
+                    | "road"
+                    | "snow"
+                    | "tundra"
+                    | "desert"
+                    | "highland"
+                    | "mossy-tundra"
+            );
+            assert_eq!(row.buildable, buildable, "{} buildable flag", row.key);
+        }
+        assert!(!terrain_buildable(T_SHALLOW));
+        assert!(!terrain_buildable(T_DEEP));
+    }
 }

@@ -137,6 +137,100 @@ export const TERRAIN_PAINT: Readonly<Record<TerrainKey, MaterialPaint>> = {
     companionMix: 0,
     specks: 5,
   },
+  // -- the planet-scale biomes ------------------------------------------------
+  // Both water rows are the same cold brine system as `brine`, pushed apart in
+  // value instead of hue: deep is the darker of the two (the depth cue), but it
+  // must still read as *water* -- the first near-black take got mistaken for
+  // empty void at map scale, so the values sit clearly above black now.
+  shallow: {
+    base: '#20444c',
+    hi: '#2e606a',
+    lo: '#143038',
+    grain: '#58959b',
+    seam: '#0a1c21',
+    ink: '#0d2429',
+    shine: '#a8cfd4',
+    companion: null,
+    companionMix: 0,
+    specks: 2,
+  },
+  deep: {
+    base: '#0e2830',
+    hi: '#1a4552',
+    lo: '#081a20',
+    grain: '#2a5d68',
+    seam: '#041014',
+    ink: '#061418',
+    shine: '#5fa5b0',
+    companion: null,
+    companionMix: 0,
+    specks: 1,
+  },
+  // Cold bands: white-grey snow and frozen ground, low saturation throughout so
+  // the seasonal belts still sit inside the mineral palette (D-03).
+  snow: {
+    base: '#8f9ba2',
+    hi: '#a6b2b8',
+    lo: '#737f86',
+    seam: '#4b555b',
+    grain: '#c3ccd1',
+    ink: '#5c666c',
+    shine: '#dde4e8',
+    companion: 'tundra',
+    companionMix: 190,
+    specks: 4,
+  },
+  tundra: {
+    base: '#5c6259',
+    hi: '#6f7669',
+    lo: '#474d45',
+    seam: '#2a2f29',
+    grain: '#8b9285',
+    ink: '#31362f',
+    shine: '#a7aea0',
+    companion: 'moss',
+    companionMix: 170,
+    specks: 7,
+  },
+  // Dry heat: warmer than the silica dunes, still dusty rather than orange.
+  desert: {
+    base: '#8b7350',
+    hi: '#a08a63',
+    lo: '#6b573a',
+    seam: '#463825',
+    grain: '#bfa276',
+    ink: '#4f3f27',
+    shine: '#d3b78b',
+    companion: 'sand',
+    companionMix: 220,
+    specks: 6,
+  },
+  // Mineral belt: the brightest rock on the planet, and the most broken.
+  highland: {
+    base: '#69706c',
+    hi: '#7f877f',
+    lo: '#4f5652',
+    seam: '#2e3431',
+    grain: '#99a19a',
+    ink: '#2f3532',
+    shine: '#b9c0b8',
+    companion: 'basalt',
+    companionMix: 200,
+    specks: 8,
+  },
+  // Wet cold band: tundra ground with the tufts packed in.
+  'mossy-tundra': {
+    base: '#566040',
+    hi: '#6d7850',
+    lo: '#414a2e',
+    seam: '#262d1a',
+    grain: '#93a268',
+    ink: '#2f3720',
+    shine: '#b2c184',
+    companion: 'tundra',
+    companionMix: 200,
+    specks: 11,
+  },
 };
 
 /** Deposit (mineral vein) paints: amber flecks, never a glow. */

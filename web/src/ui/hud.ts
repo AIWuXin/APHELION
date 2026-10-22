@@ -12,7 +12,7 @@
  */
 
 import { h } from './dom';
-import type { Hud, HudActions, HudView } from './hud-api';
+import type { Hud, HudActions, HudView, TerrainLookup } from './hud-api';
 import { AlertStrip } from './panels/alert';
 import { DebugOverlay } from './panels/debug-overlay';
 import { DirectivesPanel } from './panels/directives';
@@ -59,6 +59,7 @@ export class HudLayer implements Hud {
   public constructor(
     private readonly actions: HudActions,
     private readonly debugEnabled: boolean,
+    private readonly terrain: TerrainLookup | null = null,
   ) {}
 
   public update(view: HudView): void {
@@ -107,7 +108,7 @@ export class HudLayer implements Hud {
 
   private mount(view: HudView): Parts {
     const topbar = new TopBar(this.actions);
-    const scan = new ScanPanel(view.boot);
+    const scan = new ScanPanel(view.boot, this.terrain);
     const directives = new DirectivesPanel(view.boot);
     const lanes = new LanesPanel(this.actions, view.boot);
     const fabricator = new FabricatorPanel(this.actions, view.boot);

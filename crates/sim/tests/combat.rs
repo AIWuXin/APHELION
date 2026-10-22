@@ -1,5 +1,7 @@
 //! Combat: guns vs ground, flak vs air, hangar interceptors and HQ loss.
 
+mod common;
+
 use oc_content::balance;
 use oc_content::buildings as b;
 use oc_content::terrain::T_ROAD;
@@ -18,31 +20,20 @@ fn new_world() -> World {
 /// First free tile of a material (road tiles are buildable everywhere on the
 /// generated map, so they make stable test anchors).
 fn tile_of(world: &World, material: u8) -> (i32, i32) {
-    for ty in 0..world.map.h {
-        for tx in 0..world.map.w {
-            let Some(i) = world.map.index(tx, ty) else {
-                continue;
-            };
-            if world.map.material[i] == material && world.map.occupied[i] == 0 {
-                return (tx, ty);
-            }
-        }
-    }
-    panic!("no free tile of material {material}");
+    common::tile_of(world, material)
 }
 
-/// Free 1x1 anchor near the map centre (for air-defence tests).
+/// Free 1x1 anchor near the colony centre (for air-defence tests).
 fn near_centre(world: &World, kind: u8) -> (i32, i32) {
+    let (hx, hy) = world.map.start;
     let mut best: Option<(i32, i32, i32)> = None;
-    for ty in 0..world.map.h {
-        for tx in 0..world.map.w {
-            if !world.query_place(kind, tx, ty).placement_ok {
-                continue;
-            }
-            let key = ((tx - 22).abs() + (ty - 22).abs(), ty, tx);
-            if best.is_none_or(|(bd, by, bx)| key < (bd, by, bx)) {
-                best = Some(key);
-            }
+    for (tx, ty) in common::tiles(world) {
+        if !world.query_place(kind, tx, ty).placement_ok {
+            continue;
+        }
+        let key = (oc_iso::torus::dist2_tiles(tx, ty, hx, hy) as i32, ty, tx);
+        if best.is_none_or(|(bd, by, bx)| key < (bd, by, bx)) {
+            best = Some(key);
         }
     }
     let (_, ty, tx) = best.expect("free centre anchor");

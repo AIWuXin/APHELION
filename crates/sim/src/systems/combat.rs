@@ -86,10 +86,12 @@ fn demolish_wrecked(world: &mut World) {
     for (tx, ty, kind, size) in wrecked {
         // Centre of the footprint, not of its anchor tile: the hub is 3x3, so
         // its wreck must bloom over the tower rather than its north-west tile.
+        // Wrapped, so a footprint straddling the seam still explodes where it
+        // stands instead of one planet-width away.
         world.effect(
             EFFECT_EXPLODE,
-            tx * FP + size * FP / 2,
-            ty * FP + size * FP / 2,
+            oc_iso::torus::wrap_fp_x(tx * FP + size * FP / 2),
+            oc_iso::torus::wrap_fp_y(ty * FP + size * FP / 2),
             40,
             22,
             i32::from(kind),

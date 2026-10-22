@@ -16,7 +16,7 @@ export type TechKey = (typeof TECH_KEYS)[number];
 export const EVENT_KEYS = ["build-done", "produced", "launch", "orbit", "route", "wave", "drop", "damage", "kill", "research", "power", "shortage", "end", "raid"] as const;
 export type EventKey = (typeof EVENT_KEYS)[number];
 
-export const TERRAIN_KEYS = ["basalt", "regolith", "moss", "sand", "brine", "apron", "road", "crystal"] as const;
+export const TERRAIN_KEYS = ["basalt", "regolith", "moss", "sand", "brine", "apron", "road", "crystal", "shallow", "deep", "snow", "tundra", "desert", "highland", "mossy-tundra"] as const;
 export type TerrainKey = (typeof TERRAIN_KEYS)[number];
 
 export const DECOR_KEYS = ["none", "rock", "crystal", "tree", "pillar", "crater", "crate"] as const;

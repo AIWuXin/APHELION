@@ -1,5 +1,7 @@
 //! Economy: power balance, refinery income, the no-power stall and repairs.
 
+mod common;
+
 use oc_content::buildings as b;
 use oc_sim::{World, TICK_MS};
 
@@ -13,16 +15,14 @@ fn new_world() -> World {
 
 /// First live deposit footprint where a refinery could stand.
 fn deposit_2x2(world: &World) -> (i32, i32) {
-    for ty in 0..=world.map.h - 2 {
-        for tx in 0..=world.map.w - 2 {
-            if world.map.footprint_deposit(tx, ty, 2) > 0
-                && world.query_place(b::B_REFINERY, tx, ty).placement_ok
-            {
-                return (tx, ty);
-            }
+    for (tx, ty) in common::tiles(world) {
+        if world.map.footprint_deposit(tx, ty, 2) > 0
+            && world.query_place(b::B_REFINERY, tx, ty).placement_ok
+        {
+            return (tx, ty);
         }
     }
-    panic!("no deposit footprint on the generated map");
+    panic!("no deposit footprint near the colony");
 }
 
 #[test]

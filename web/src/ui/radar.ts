@@ -1,33 +1,74 @@
 /**
- * Tactical scan minimap.
+ * Tactical scan minimap -- **local**, radius {@link RADAR_RADIUS} tiles.
  *
- * Painted on a 2D canvas rather than as DOM so the sweep, orbital rings and
- * blips stay crisp and cheap. Colour discipline applies here too: the ground
- * grid is status green, lane traces / sweep / haulers are function cyan, the
- * colony is amber, and red is reserved for hostiles.
+ * There is no whole-planet radar any more: 10240 x 10240 tiles cannot be scanned
+ * per frame, and "the whole map at once" stopped meaning anything once the world
+ * became a torus. The instrument now paints the ground within 96 tiles of the
+ * colony by sampling the streamed chunk store, and every blip is placed from a
+ * **wrapped** offset -- a raider two tiles across the x = 0/10239 seam shows up
+ * two tiles to the west of the colony, not on the far rim of the ellipse.
  *
- * Everything drawn is derived from the latest snapshot (plus static boot data)
- * -- the radar keeps no simulation state, only its own sweep phase.
+ * Painted on a 2D canvas rather than as DOM so the sweep, orbital rings and blips
+ * stay crisp and cheap. Colour discipline applies here too: the ground is status
+ * green, water is a dim steel tone, lane traces / sweep / haulers are function
+ * cyan, the colony is amber, and red is reserved for hostiles.
+ *
+ * Everything drawn is derived from the latest snapshot (plus static boot data and
+ * the terrain lookup) -- the radar keeps no simulation state, only its own sweep
+ * phase. The instrument chrome lives in `radar-chrome.ts`.
  */
 
 import type { BootBlob } from '../generated/BootBlob';
-import type { HudView } from './hud-api';
-import { FONT, PALETTE, rgba } from '../style/tokens';
+import type { BuildingView } from '../generated/BuildingView';
+import { BUILDING_KEYS } from '../generated/content-keys';
+import type { HudView, TerrainLookup } from './hud-api';
+import { PALETTE, rgba } from '../style/tokens';
+import { deltaSpan } from '../render/torus';
+import { RADAR_RADIUS, drawFrame, drawGrid, drawOrbits, drawSweep } from './radar-chrome';
+
+export { RADAR_RADIUS };
 
 const TAU = Math.PI * 2;
+
+/** Chunks requested per frame while the scan area is still cold. */
+const PREFETCH_PER_FRAME = 6;
+/** Frames between repaints of the cached ground layer (it barely changes). */
+const GROUND_REFRESH_FRAMES = 12;
+
+/** Terrain materials that read as open water on a monochrome instrument. */
+const WATER = new Set([4, 8, 9]);
+/** Unbuildable, non-water ground that still belongs on the scan. */
+const CRYSTAL = 7;
+
+/** Building table index of the 3x3 command hub (`oc-content`). */
+const HUB = BUILDING_KEYS.indexOf('command-hub');
 
 /** The radar instrument. */
 export class Radar {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly canvas: HTMLCanvasElement;
-  private readonly routes: number;
+  private readonly worldW: number;
+  private readonly worldH: number;
   private sweep = 0;
   private band = 0;
   private w = 0;
   private h = 0;
+  /** Scan centre in wrapped tiles. `-1` until the first snapshot arrives. */
+  private centreX = -1;
+  private centreY = -1;
+  /** Cursor over the chunk-grid steps of the scan disc. */
+  private prefetchCursor = 0;
+  /** Cached ground layer plus the frame it was painted on. */
+  private ground: HTMLCanvasElement | null = null;
+  private groundFrame = -1_000_000;
+  private frames = 0;
 
-  public constructor(private readonly boot: BootBlob) {
-    this.routes = boot.catalog.routes.length;
+  public constructor(
+    private readonly boot: BootBlob,
+    private readonly terrain: TerrainLookup | null,
+  ) {
+    this.worldW = boot.map.width;
+    this.worldH = boot.map.height;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'oc-radar';
     const ctx = this.canvas.getContext('2d');
@@ -49,6 +90,9 @@ export class Radar {
     this.canvas.width = Math.round(this.w * dpr);
     this.canvas.height = Math.round(this.h * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // The ground layer is cached at the panel's device resolution; a resize
+    // invalidates it.
+    this.ground = null;
   }
 
   /** Repaint from the latest snapshot. */
@@ -57,6 +101,7 @@ export class Radar {
     const { ctx, w, h } = this;
     this.sweep = (this.sweep + dtMs * 0.00042) % TAU;
     this.band = (this.band + dtMs * 0.018) % (h + 40);
+    this.frames += 1;
 
     const cx = w / 2;
     const cy = h * 0.53;
@@ -67,7 +112,11 @@ export class Radar {
     ctx.fillStyle = PALETTE.panel;
     ctx.fillRect(0, 0, w, h);
 
-    this.drawGrid(cx, cy, rx, ry);
+    // Ground first, then the graticule over it: the range rings have to stay
+    // readable on top of a fully loaded scan.
+    this.trackCentre(view);
+    this.drawGround(cx, cy, rx, ry);
+    drawGrid(ctx, cx, cy, rx, ry);
 
     // Sweep band: a soft horizontal scan cross-section, echoing the reference
     // oscilloscope read without becoming a neon effect.
@@ -77,166 +126,153 @@ export class Radar {
     ctx.fillStyle = rgba(PALETTE.status, 0.05);
     ctx.fillRect(0, bandY * h - 2, w, 1);
 
-    this.drawTerrain(cx, cy, rx, ry);
-    this.drawOrbits(cx, cy, rx, ry, view);
-    this.drawSweep(cx, cy, rx, ry);
+    drawOrbits(ctx, cx, cy, rx, ry, view);
+    drawSweep(ctx, cx, cy, rx, ry, this.sweep);
     this.drawShips(cx, cy, rx, ry, view);
     this.drawBuildings(cx, cy, rx, ry, view);
     this.drawHostiles(cx, cy, rx, ry, view);
-    this.drawFrame(w, h);
+    drawFrame(ctx, w, h);
   }
 
   // ------------------------------------------------------------------ layers
 
-  private drawGrid(cx: number, cy: number, rx: number, ry: number): void {
-    const { ctx } = this;
-    ctx.lineWidth = 1;
-    for (let i = 1; i <= 3; i += 1) {
-      const k = i / 3;
-      ctx.strokeStyle = rgba(PALETTE.status, 0.08 + i * 0.03);
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx * k, ry * k, 0, 0, TAU);
-      ctx.stroke();
+  /**
+   * Centre the scan on the command hub (or the planet's start tile).
+   *
+   * A change of centre asks the terrain store for the chunks covering the disc,
+   * a few per frame, so the instrument fills in instead of stalling the frame.
+   */
+  private trackCentre(view: HudView): void {
+    const hub = view.snapshot.buildings.find((b) => b.kind === HUB);
+    const tx = hub ? hub.tx + 1 : this.boot.map.start_tx;
+    const ty = hub ? hub.ty + 1 : this.boot.map.start_ty;
+    if (tx !== this.centreX || ty !== this.centreY) {
+      this.centreX = tx;
+      this.centreY = ty;
+      this.prefetchCursor = 0;
     }
-    // Radial spokes.
-    ctx.strokeStyle = rgba(PALETTE.status, 0.06);
-    for (let i = 0; i < 8; i += 1) {
-      const a = (i / 8) * TAU;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * rx * 0.12, cy + Math.sin(a) * ry * 0.12);
-      ctx.lineTo(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry);
-      ctx.stroke();
-    }
-    // Crosshair on the major axes.
-    ctx.strokeStyle = rgba(PALETTE.status, 0.12);
-    ctx.beginPath();
-    ctx.moveTo(cx - rx, cy);
-    ctx.lineTo(cx + rx, cy);
-    ctx.moveTo(cx, cy - ry);
-    ctx.lineTo(cx, cy + ry);
-    ctx.stroke();
+    this.prefetchStep();
+  }
 
-    // Range ticks around the outer ellipse, every 15 degrees.
-    ctx.strokeStyle = rgba(PALETTE.lineBright, 0.26);
-    for (let i = 0; i < 18; i += 1) {
-      const a = (i / 18) * TAU;
-      const len = i % 3 === 0 ? 4 : 2;
-      const x0 = cx + Math.cos(a) * rx;
-      const y0 = cy + Math.sin(a) * ry;
-      const x1 = cx + Math.cos(a) * (rx - len);
-      const y1 = cy + Math.sin(a) * (ry - len * 0.6);
-      ctx.beginPath();
-      ctx.moveTo(x0, y0);
-      ctx.lineTo(x1, y1);
-      ctx.stroke();
-    }
-
-    // Range ring labels (2 / 4 / 6 km) along the upper-left diagonal, where
-    // there is room and the sweep does not wash over them every revolution.
-    ctx.font = `8px ${FONT.mono}`;
-    ctx.fillStyle = rgba(PALETTE.ink3, 0.95);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'bottom';
-    for (let i = 1; i <= 3; i += 1) {
-      const k = i / 3;
-      const px = cx - Math.cos(Math.PI / 4) * rx * k;
-      const py = cy - Math.sin(Math.PI / 4) * ry * k;
-      ctx.fillStyle = rgba(PALETTE.lineBright, 0.7);
-      ctx.fillRect(Math.round(px), Math.round(py), 3, 1);
-      ctx.fillStyle = rgba(PALETTE.ink3, 0.95);
-      ctx.fillText(`${i * 2}KM`, Math.round(px) - 3, Math.round(py) - 1);
+  /** Ask the terrain store for the chunks covering the scan disc, a few a frame. */
+  private prefetchStep(): void {
+    const terrain = this.terrain;
+    if (!terrain || this.centreX < 0) return;
+    const edge = Math.max(1, this.boot.map.chunk_size);
+    const span = RADAR_RADIUS * 2;
+    const stepsX = Math.floor(span / edge) * 2 + 1;
+    const total = stepsX * stepsX;
+    for (let n = 0; n < PREFETCH_PER_FRAME; n += 1) {
+      const i = this.prefetchCursor % total;
+      this.prefetchCursor = (this.prefetchCursor + 1) % total;
+      const ox = -span + (i % stepsX) * edge;
+      const oy = -span + Math.floor(i / stepsX) * edge;
+      terrain.ensure(this.centreX + ox, this.centreY + oy);
     }
   }
 
-  private drawTerrain(cx: number, cy: number, rx: number, ry: number): void {
-    const { ctx } = this;
-    const map = this.boot.map;
-    const step = Math.max(1, Math.floor(map.w / 46));
-    ctx.fillStyle = rgba(PALETTE.status, 0.3);
-    for (let ty = 0; ty < map.h; ty += step) {
-      for (let tx = 0; tx < map.w; tx += step) {
-        const m = map.material[ty * map.w + tx] ?? 0;
-        if (m === 4 || m === 7) continue;
-        const nx = (tx + 0.5) / map.w - 0.5;
-        const ny = (ty + 0.5) / map.h - 0.5;
-        const px = cx + nx * rx * 1.82;
-        const py = cy + ny * ry * 1.82;
-        ctx.fillRect(Math.round(px), Math.round(py), 1, 1);
-      }
+  /**
+   * Blit the cached ground layer, repainting it only when it can have changed.
+   *
+   * The scan disc is ~900 fills of 1px dots. That is affordable once, but not 60
+   * times a second: the ground only changes when the scan centre moves or the
+   * world streamer delivers a chunk, so it is baked into its own canvas and
+   * refreshed on a slow tick.
+   */
+  private drawGround(cx: number, cy: number, rx: number, ry: number): void {
+    const stale = !this.ground || this.centreX < 0 || this.frames - this.groundFrame > GROUND_REFRESH_FRAMES;
+    if (stale) {
+      this.paintGround(cx, cy, rx, ry);
+      this.groundFrame = this.frames;
     }
-    // Colony reticle at the world centre.
-    ctx.strokeStyle = rgba(PALETTE.primary, 0.5);
-    ctx.beginPath();
-    ctx.moveTo(cx - 4, cy);
-    ctx.lineTo(cx - 1, cy);
-    ctx.moveTo(cx + 1, cy);
-    ctx.lineTo(cx + 4, cy);
-    ctx.moveTo(cx, cy - 4);
-    ctx.lineTo(cx, cy - 1);
-    ctx.moveTo(cx, cy + 1);
-    ctx.lineTo(cx, cy + 4);
-    ctx.stroke();
+    if (this.ground) this.ctx.drawImage(this.ground, 0, 0, this.w, this.h);
   }
 
-  private drawOrbits(cx: number, cy: number, rx: number, ry: number, view: HudView): void {
-    const { ctx } = this;
-    const oy = cy - ry * 0.34;
-    ctx.setLineDash([2, 3]);
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 2; i += 1) {
-      const rx2 = rx * (0.6 + i * 0.26);
-      const ry2 = ry * (0.19 + i * 0.1);
-      ctx.strokeStyle = rgba(PALETTE.function, 0.16 + i * 0.05);
-      ctx.beginPath();
-      ctx.ellipse(cx, oy, rx2, ry2, 0, 0, TAU);
-      ctx.stroke();
+  /** Repaint the offscreen ground layer. */
+  private paintGround(cx: number, cy: number, rx: number, ry: number): void {
+    let canvas = this.ground;
+    if (!canvas || canvas.width !== this.canvas.width || canvas.height !== this.canvas.height) {
+      canvas = document.createElement('canvas');
+      canvas.width = this.canvas.width;
+      canvas.height = this.canvas.height;
+      this.ground = canvas;
     }
-    ctx.setLineDash([]);
+    const g = canvas.getContext('2d');
+    if (!g) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.drawTerrain(g, cx, cy, rx, ry);
+  }
 
-    // One hauler node per lane, positioned by the snapshot's run progress.
-    for (let i = 0; i < this.routes; i += 1) {
-      const state = view.snapshot.orbital.routes[i];
-      if (!state) continue;
-      const ring = i % 2;
-      const rx2 = rx * (0.6 + ring * 0.26);
-      const ry2 = ry * (0.19 + ring * 0.1);
-      const angle = (state.progress / 1000) * TAU + i * 2.1 + view.snapshot.tick * 0.0002;
-      const px = cx + Math.cos(angle) * rx2;
-      const py = oy + Math.sin(angle) * ry2;
-      ctx.fillStyle = state.active ? PALETTE.function : rgba(PALETTE.ink3, 0.8);
-      ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 2, 2);
-      if (state.active) {
-        ctx.strokeStyle = rgba(PALETTE.function, 0.25);
-        ctx.beginPath();
-        ctx.moveTo(cx, oy);
-        ctx.lineTo(px, py);
-        ctx.stroke();
+  /**
+   * Top-down sample of the local ground from the chunk store.
+   *
+   * Sampled in **panel space** (a 3px dot lattice clipped to the range ellipse)
+   * rather than in tile space: a tile-space lattice stretches with the iso
+   * aspect and turns the scan into vertical dotted columns.
+   */
+  private drawTerrain(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+  ): void {
+    const terrain = this.terrain;
+    if (!terrain || this.centreX < 0) return;
+    const land = rgba(PALETTE.status, 0.3);
+    const coast = rgba(PALETTE.status, 0.16);
+    const sea = rgba(PALETTE.lineBright, 0.2);
+    const crystal = rgba(PALETTE.function, 0.22);
+    for (let py = Math.ceil(cy - ry); py <= cy + ry; py += 3) {
+      const ny = (py - cy) / ry;
+      for (let px = Math.ceil(cx - rx); px <= cx + rx; px += 3) {
+        const nx = (px - cx) / rx;
+        if (nx * nx + ny * ny > 1) continue;
+        // One panel radius is one scan radius, so the ellipse is the range ring.
+        const tx = Math.round(this.centreX + nx * RADAR_RADIUS);
+        const ty = Math.round(this.centreY + ny * RADAR_RADIUS);
+        const m = terrain.material(tx, ty);
+        if (m < 0) continue;
+        if (WATER.has(m)) ctx.fillStyle = m === 9 ? sea : coast;
+        else if (m === CRYSTAL) ctx.fillStyle = crystal;
+        else ctx.fillStyle = land;
+        ctx.fillRect(px, py, 1, 1);
       }
     }
   }
 
-  private drawSweep(cx: number, cy: number, rx: number, ry: number): void {
-    const { ctx } = this;
-    const lead = this.sweep;
-    for (let i = 2; i >= 0; i -= 1) {
-      const a0 = lead - i * 0.16;
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-      grad.addColorStop(0, rgba(PALETTE.function, 0));
-      grad.addColorStop(0.45, rgba(PALETTE.function, 0.1 + (2 - i) * 0.08));
-      grad.addColorStop(1, rgba(PALETTE.function, 0.24 + (2 - i) * 0.16));
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.ellipse(cx, cy, rx, ry, 0, a0, a0 + 0.24);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.strokeStyle = rgba(PALETTE.function, 0.8);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(lead) * rx, cy + Math.sin(lead) * ry);
-    ctx.stroke();
+  /**
+   * Wrapped offset of a world position from the scan centre, in tiles.
+   *
+   * Everything on this instrument goes through here, which is the whole point of
+   * the local scan: a blip always appears on the side of the ellipse the world
+   * actually wraps towards.
+   */
+  private offset(tx: number, ty: number): { readonly dx: number; readonly dy: number } {
+    return {
+      dx: deltaSpan(this.centreX, tx, this.worldW),
+      dy: deltaSpan(this.centreY, ty, this.worldH),
+    };
+  }
+
+  /** Project a wrapped world position onto the disc, or `null` when out of range. */
+  private blip(
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    tx: number,
+    ty: number,
+  ): readonly [number, number] | null {
+    const { dx, dy } = this.offset(tx, ty);
+    if (Math.abs(dx) > RADAR_RADIUS || Math.abs(dy) > RADAR_RADIUS) return null;
+    return [
+      Math.round(cx + (dx / RADAR_RADIUS) * rx),
+      Math.round(cy + (dy / RADAR_RADIUS) * ry),
+    ] as const;
   }
 
   private drawShips(cx: number, cy: number, rx: number, ry: number, view: HudView): void {
@@ -253,54 +289,49 @@ export class Radar {
         ctx.fillStyle = PALETTE.danger;
         ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 2, 2);
       } else {
-        const nx = s.x / 1024 / this.boot.map.w - 0.5;
-        const ny = s.y / 1024 / this.boot.map.h - 0.5;
+        const p = this.blip(cx, cy, rx, ry, s.x / 1024, s.y / 1024);
+        if (!p) continue;
         ctx.fillStyle = PALETTE.danger;
-        ctx.fillRect(Math.round(cx + nx * rx * 1.82), Math.round(cy + ny * ry * 1.82), 2, 2);
+        ctx.fillRect(p[0], p[1], 2, 2);
       }
     }
   }
 
   private drawBuildings(cx: number, cy: number, rx: number, ry: number, view: HudView): void {
     const { ctx } = this;
-    const map = this.boot.map;
     const selected = view.selection.id;
-    const project = (tx: number, ty: number, size = 1): readonly [number, number] => {
-      const nx = (tx + size / 2) / map.w - 0.5;
-      const ny = (ty + size / 2) / map.h - 0.5;
-      return [Math.round(cx + nx * rx * 1.82), Math.round(cy + ny * ry * 1.82)];
-    };
-    // Footprints differ (the 3x3 command hub next to 1x1 guns and 2x2 pads), so
-    // every blip is projected from the centre of its own footprint.
-    const at = (tx: number, ty: number, kind: number): readonly [number, number] =>
-      project(tx, ty, this.boot.catalog.buildings[kind]?.footprint ?? 1);
-    const hq = view.snapshot.buildings.find((b) => b.kind === 0);
-    const home = hq ? at(hq.tx, hq.ty, hq.kind) : [cx, cy] as const;
+    const size = (b: BuildingView): number => this.boot.catalog.buildings[b.kind]?.footprint ?? 1;
+    const at = (b: BuildingView): readonly [number, number] | null =>
+      this.blip(cx, cy, rx, ry, b.tx + size(b) / 2, b.ty + size(b) / 2);
+    const hub = view.snapshot.buildings.find((b) => b.kind === HUB);
+    const home = hub ? at(hub) : null;
     // Colony footprint: faint amber spokes from the hub plus an amber cluster
     // of structure blips, so "where is home" reads at a glance.
     for (const b of view.snapshot.buildings) {
-      if (b.kind === 0) continue;
-      const [px, py] = at(b.tx, b.ty, b.kind);
+      if (b.kind === HUB || !home) continue;
+      const p = at(b);
+      if (!p) continue;
       ctx.strokeStyle = rgba(PALETTE.primary, 0.12);
       ctx.beginPath();
       ctx.moveTo(home[0], home[1]);
-      ctx.lineTo(px, py);
+      ctx.lineTo(p[0], p[1]);
       ctx.stroke();
     }
     for (const b of view.snapshot.buildings) {
-      const [px, py] = at(b.tx, b.ty, b.kind);
-      if (b.kind === 0) {
+      const p = at(b);
+      if (!p) continue;
+      if (b.kind === HUB) {
         ctx.fillStyle = PALETTE.primary;
-        ctx.fillRect(px - 2, py - 2, 5, 5);
+        ctx.fillRect(p[0] - 2, p[1] - 2, 5, 5);
       } else {
         ctx.fillStyle = rgba(PALETTE.primary, 0.82);
-        ctx.fillRect(px - 1, py - 1, 3, 3);
+        ctx.fillRect(p[0] - 1, p[1] - 1, 3, 3);
       }
       if (b.id === selected) {
         ctx.strokeStyle = PALETTE.primary;
-        ctx.strokeRect(px - 4.5, py - 4.5, 9, 9);
+        ctx.strokeRect(p[0] - 4.5, p[1] - 4.5, 9, 9);
         ctx.strokeStyle = rgba(PALETTE.primary, 0.45);
-        ctx.strokeRect(px - 6.5, py - 6.5, 13, 13);
+        ctx.strokeRect(p[0] - 6.5, p[1] - 6.5, 13, 13);
       }
     }
   }
@@ -309,31 +340,10 @@ export class Radar {
     const { ctx } = this;
     for (const u of view.snapshot.units) {
       if (u.owner !== 1) continue;
-      const nx = u.x / 1024 / this.boot.map.w - 0.5;
-      const ny = u.y / 1024 / this.boot.map.h - 0.5;
+      const p = this.blip(cx, cy, rx, ry, u.x / 1024, u.y / 1024);
+      if (!p) continue;
       ctx.fillStyle = PALETTE.danger;
-      ctx.fillRect(Math.round(cx + nx * rx * 1.82) - 1, Math.round(cy + ny * ry * 1.82) - 1, 3, 3);
+      ctx.fillRect(p[0] - 1, p[1] - 1, 3, 3);
     }
-  }
-
-  private drawFrame(w: number, h: number): void {
-    const { ctx } = this;
-    ctx.strokeStyle = rgba(PALETTE.lineBright, 0.55);
-    ctx.lineWidth = 1;
-    const c = 7;
-    ctx.beginPath();
-    ctx.moveTo(0.5, c);
-    ctx.lineTo(0.5, 0.5);
-    ctx.lineTo(c, 0.5);
-    ctx.moveTo(w - c, 0.5);
-    ctx.lineTo(w - 0.5, 0.5);
-    ctx.lineTo(w - 0.5, c);
-    ctx.moveTo(w - 0.5, h - c);
-    ctx.lineTo(w - 0.5, h - 0.5);
-    ctx.lineTo(w - c, h - 0.5);
-    ctx.moveTo(c, h - 0.5);
-    ctx.lineTo(0.5, h - 0.5);
-    ctx.lineTo(0.5, h - c);
-    ctx.stroke();
   }
 }

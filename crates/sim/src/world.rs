@@ -127,7 +127,7 @@ impl World {
     /// Create a world from a seed.
     #[must_use]
     pub fn new(seed: u32) -> Self {
-        let generated = mapgen::generate(seed, oc_iso::grid::MAP_W, oc_iso::grid::MAP_H);
+        let generated = mapgen::generate(seed);
         let mut world = Self {
             seed,
             tick: 0,

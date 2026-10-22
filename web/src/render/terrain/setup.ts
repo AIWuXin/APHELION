@@ -1,15 +1,17 @@
 /**
- * Terrain bake setup: material tables, companion-mask smoothing and the
- * host/companion colour blends. Split out of `terrain-layer.ts` to keep that
- * orchestrator under the file-length limit.
+ * Terrain bake setup: material tables, tint ramps and the host/companion
+ * colour blends. Split out of `terrain-layer.ts` to keep that orchestrator
+ * under the file-length limit.
+ *
+ * Everything here is chunk independent and built once, so a chunk bake is pure
+ * tile work: the tables are shared by every 32x32 block on the planet.
  */
 
-import type { MapView } from '../../generated/MapView';
 import { TERRAIN_KEYS } from '../../generated/content-keys';
 import { mix, shade } from '../../style/tokens';
 import { DRY_TEXTURES } from './materials-a';
 import { SURFACE_TEXTURES } from './materials-b';
-import { companionMask } from './noise';
+import { COLD_TEXTURES, DEEP_TEXTURES } from './materials-c';
 import type { MaterialTexture } from './tile';
 import { TERRAIN_PAINT, type MaterialPaint } from '../world-palette';
 
@@ -45,55 +47,7 @@ function blendPaint(self: MaterialPaint, companion: MaterialPaint, t: number): M
   };
 }
 
-/** 5-neighbour majority filter; kills single-tile mask confetti. */
-function smoothMask(mask: Uint8Array, w: number, h: number) {
-  const out = new Uint8Array(w * h);
-  for (let ty = 0; ty < h; ty += 1) {
-    for (let tx = 0; tx < w; tx += 1) {
-      const i = ty * w + tx;
-      let count = mask[i] === 1 ? 2 : 0;
-      if (tx > 0 && mask[i - 1] === 1) count += 1;
-      if (tx < w - 1 && mask[i + 1] === 1) count += 1;
-      if (ty > 0 && mask[i - w] === 1) count += 1;
-      if (ty < h - 1 && mask[i + w] === 1) count += 1;
-      out[i] = count >= 3 ? 1 : 0;
-    }
-  }
-  return out;
-}
-
-/** Assign every tile its source material and its companion-masked material. */
-export function buildMaterials(map: MapView): { source: Int16Array; material: Int16Array } {
-  const n = map.w * map.h;
-  const source = new Int16Array(n);
-  let mask = new Uint8Array(n);
-  for (let ty = 0; ty < map.h; ty += 1) {
-    for (let tx = 0; tx < map.w; tx += 1) {
-      const i = ty * map.w + tx;
-      const material = map.material[i] ?? 0;
-      source[i] = material;
-      const paint = TERRAIN_PAINT[TERRAIN_KEYS[material] ?? 'basalt'];
-      if (paint.companion && companionMask(tx, ty, paint.companionMix)) mask[i] = 1;
-    }
-  }
-  // Two smoothing passes turn scattered speckle into 2-4 tile patches.
-  mask = smoothMask(mask, map.w, map.h);
-  mask = smoothMask(mask, map.w, map.h);
-  const material = new Int16Array(n);
-  for (let i = 0; i < n; i += 1) {
-    const self = source[i] ?? 0;
-    const paint = TERRAIN_PAINT[TERRAIN_KEYS[self] ?? 'basalt'];
-    let effective = self;
-    if (mask[i] === 1 && paint.companion) {
-      const companion = TERRAIN_KEYS.indexOf(paint.companion);
-      if (companion >= 0) effective = companion;
-    }
-    material[i] = effective;
-  }
-  return { source, material };
-}
-
-/** Per-material fill tints. */
+/** Per-material fill tints, indexed like `TERRAIN_KEYS`. */
 export function buildTints(): string[][] {
   return TERRAIN_KEYS.map((key) => {
     const base = TERRAIN_PAINT[key].base;
@@ -101,7 +55,7 @@ export function buildTints(): string[][] {
   });
 }
 
-/** Host/companion colour blend table, indexed [self][companion]. */
+/** Host/companion colour blend table, indexed `[self][companion]`. */
 export function buildBlends(): MaterialPaint[][] {
   return TERRAIN_KEYS.map((selfKey) =>
     TERRAIN_KEYS.map((companionKey) =>
@@ -110,7 +64,25 @@ export function buildBlends(): MaterialPaint[][] {
   );
 }
 
-/** Material texture dispatch, indexed by `TERRAIN_KEYS`. */
+/**
+ * Fill tints of the blended (companion) faces, indexed `[self][companion][step]`.
+ *
+ * A companion patch must *step*, not shout: the face colour has to come from the
+ * same 32% blend its texture is painted with. Using the companion's own tint here
+ * (the obvious shortcut) paints a full-strength patch under a blended texture,
+ * which is what turned the cold bands into a chessboard.
+ */
+export function buildBlendTints(): string[][][] {
+  const blends = buildBlends();
+  return blends.map((row) => row.map((paint) => TINT_STEPS.map((f) => shade(paint.base, f))));
+}
+
+/**
+ * Material texture dispatch, indexed by `TERRAIN_KEYS`.
+ *
+ * Every row must have a painter: a missing entry leaves a flat colour, which
+ * reads as an unfinished biome at map scale.
+ */
 export function buildTextures(): readonly MaterialTexture[] {
   return [
     DRY_TEXTURES.basalt,
@@ -121,5 +93,25 @@ export function buildTextures(): readonly MaterialTexture[] {
     SURFACE_TEXTURES.apron,
     SURFACE_TEXTURES.road,
     SURFACE_TEXTURES.crystal,
+    DEEP_TEXTURES.shallow,
+    DEEP_TEXTURES.deep,
+    COLD_TEXTURES.snow,
+    COLD_TEXTURES.tundra,
+    COLD_TEXTURES.desert,
+    COLD_TEXTURES.highland,
+    COLD_TEXTURES.mossyTundra,
   ];
+}
+
+/** Look a paint recipe up by material index, falling back to basalt. */
+export function paintOf(material: number): MaterialPaint {
+  return TERRAIN_PAINT[TERRAIN_KEYS[material] ?? 'basalt'];
+}
+
+/** Look a texture painter up by material index. */
+export function textureOf(
+  textures: readonly MaterialTexture[],
+  material: number,
+): MaterialTexture | undefined {
+  return textures[material];
 }

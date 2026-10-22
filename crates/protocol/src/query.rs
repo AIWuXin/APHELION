@@ -13,7 +13,8 @@ pub const REASON_OK: u8 = 0;
 pub const REASON_ALLOY: u8 = 1;
 /// Not enough fuel cells.
 pub const REASON_FUEL: u8 = 2;
-/// Tile is outside the map.
+/// Reserved: the planet is a torus, so no tile is outside the map. Kept in the
+/// wire enum so older clients do not see the following codes shift.
 pub const REASON_BOUNDS: u8 = 3;
 /// Tile is water / cliff / reserved.
 pub const REASON_TERRAIN: u8 = 4;

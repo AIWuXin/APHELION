@@ -1,6 +1,6 @@
 //! Thin wasm bridge.
 //!
-//! Deliberately **raw**: sixteen `extern "C"` functions over linear memory
+//! Deliberately **raw**: eighteen `extern "C"` functions over linear memory
 //! instead of `wasm-bindgen` glue. The protocol is already binary, so the whole
 //! bridge is "write bytes here, call this, read bytes there". That keeps the
 //! build to a single `cargo build --target wasm32-unknown-unknown`, removes a
@@ -18,6 +18,9 @@ use oc_sim::World;
 
 thread_local! {
     static WORLD: RefCell<Option<World>> = const { RefCell::new(None) };
+    /// Reusable encoding buffer for [`oc_chunk`]; a 32x32 chunk is ~5 KB of
+    /// postcard, so reallocating per chunk would churn the wasm heap.
+    static CHUNK_BUF: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Allocate `len` bytes in wasm linear memory.
@@ -132,6 +135,39 @@ pub extern "C" fn oc_boot_len() -> usize {
             .as_ref()
             .map_or(0, |world| world.boot_bytes().len())
     })
+}
+
+/// Encode one 32x32 terrain chunk and return a pointer to its bytes.
+///
+/// The planet is not shipped as a tile array; the client streams chunks through
+/// this call and decodes each as a postcard `ChunkView`. Coordinates wrap, so
+/// `(-1, -1)` is the chunk before `(0, 0)`.
+///
+/// The returned pointer is valid until the next `oc_chunk` (the buffer is
+/// reused) -- copy the bytes first. Use [`oc_chunk_len`] for the length.
+#[no_mangle]
+pub extern "C" fn oc_chunk(cx: i32, cy: i32) -> *const u8 {
+    CHUNK_BUF.with(|cell| {
+        let mut buf = cell.borrow_mut();
+        let encoded = WORLD.with(|w| {
+            let guard = w.borrow();
+            guard
+                .as_ref()
+                .and_then(|world| postcard::to_allocvec(&world.chunk_view(cx, cy)).ok())
+        });
+        *buf = encoded.unwrap_or_default();
+        if buf.is_empty() {
+            core::ptr::null()
+        } else {
+            buf.as_ptr()
+        }
+    })
+}
+
+/// Length of the bytes returned by the last [`oc_chunk`] call.
+#[no_mangle]
+pub extern "C" fn oc_chunk_len() -> usize {
+    CHUNK_BUF.with(|b| b.borrow().len())
 }
 
 /// Ask the simulation whether a placement is legal.

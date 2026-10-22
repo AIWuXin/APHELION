@@ -7,9 +7,18 @@
  * Chrome through playwright-core, waits for the boot veil to disappear, records
  * console errors, and writes a PNG.
  *
+ * Camera moves are driven through the `?debug=1` hooks the app exposes, so a
+ * shot can be framed anywhere on the planet (including across the 0/10239 seam):
+ *
+ *   --focus 5122,5126   centre the camera on a wrapped tile
+ *   --drag 900,0        fast pan by a pixel delta (simulated pointer drag)
+ *   --settle 900        ms to wait after the camera move before shooting
+ *   --stats             print the renderer's stream counters
+ *
  * Usage:
  *   node scripts/screenshot.mjs [--out .tmp/shot.png] [--width 1920] [--height 1080]
- *                               [--wait 3500] [--seed N] [--debug] [--click x,y]
+ *                               [--wait 3500] [--seed N] [--debug] [--demo]
+ *                               [--focus x,y] [--drag dx,dy] [--settle ms] [--stats]
  */
 
 import { createServer } from 'node:http';
@@ -38,9 +47,13 @@ const width = Number(arg('width', 1920));
 const height = Number(arg('height', 1080));
 const waitMs = Number(arg('wait', 3500));
 const seed = String(arg('seed', '1602900180'));
-const debug = process.argv.includes('--debug');
+const debug = process.argv.includes('--debug') || arg('focus', null) !== null || arg('drag', null) !== null;
 const demo = process.argv.includes('--demo');
 const clickArg = arg('click', null);
+const focusArg = arg('focus', null);
+const dragArg = arg('drag', null);
+const settleMs = Number(arg('settle', 900));
+const wantStats = process.argv.includes('--stats') || debug;
 mkdirSync(dirname(out), { recursive: true });
 
 const MIME = {
@@ -103,6 +116,37 @@ await page
   })
   .catch(() => errors.push('boot veil never cleared'));
 
+if (focusArg && focusArg !== true) {
+  const [tx, ty] = String(focusArg).split(',').map(Number);
+  const moved = await page.evaluate(
+    ([x, y]) => {
+      const focus = window.__ocFocus;
+      if (typeof focus !== 'function') return false;
+      focus(x, y);
+      return true;
+    },
+    [tx ?? 0, ty ?? 0],
+  );
+  if (!moved) errors.push('camera focus hook missing (?debug=1 required)');
+  await page.waitForTimeout(settleMs);
+}
+
+if (dragArg && dragArg !== true) {
+  // A fast pan: press in the middle of the viewport and sweep in 24 steps, the
+  // way a player throws the map across the screen.
+  const [dx, dy] = String(dragArg).split(',').map(Number);
+  const cx = Math.round(width / 2);
+  const cy = Math.round(height / 2);
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  for (let i = 1; i <= 24; i += 1) {
+    await page.mouse.move(cx + ((dx ?? 0) * i) / 24, cy + ((dy ?? 0) * i) / 24);
+    await page.waitForTimeout(8);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(settleMs);
+}
+
 if (clickArg && clickArg !== true) {
   const [x, y] = String(clickArg).split(',').map(Number);
   await page.mouse.click(x ?? 0, y ?? 0);
@@ -110,6 +154,19 @@ if (clickArg && clickArg !== true) {
 }
 
 await page.waitForTimeout(waitMs);
+if (wantStats) {
+  const stats = await page.evaluate(() => {
+    const terrain = window.__ocTerrain;
+    const camera = window.__ocCamera;
+    const cam = typeof camera === 'function' ? camera() : null;
+    return {
+      terrain: typeof terrain === 'function' ? terrain() : 'n/a',
+      camera: cam ? `tile ${Math.floor(cam.centreX)},${Math.floor(cam.centreY)} zoom ${cam.zoom}` : 'n/a',
+    };
+  });
+  console.log(`[screenshot] camera: ${stats.camera}`);
+  console.log(`[screenshot] terrain: ${stats.terrain}`);
+}
 await page.screenshot({ path: out });
 await browser.close();
 server.close();

@@ -8,4 +8,5 @@ license.workspace = true
 oc-sim = { workspace = true }
 oc-protocol = { workspace = true }
 oc-content = { workspace = true }
+oc-iso = { workspace = true }
 postcard = { workspace = true }

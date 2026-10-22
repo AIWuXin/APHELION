@@ -13,6 +13,7 @@
 
 import type { BuildQuery } from '../generated/BuildQuery';
 import type { BootBlob } from '../generated/BootBlob';
+import type { ChunkView } from '../generated/ChunkView';
 import type { Command } from '../generated/Command';
 import type { Snapshot } from '../generated/Snapshot';
 
@@ -45,4 +46,14 @@ export interface Transport {
    * transport may omit it, in which case the UI shows an optimistic ghost.
    */
   queryPlace?: (kind: number, tx: number, ty: number) => BuildQuery;
+
+  /**
+   * Optional synchronous terrain fetch for one 32x32 chunk.
+   *
+   * The planet is 10240 x 10240 tiles, so terrain is streamed per chunk rather
+   * than shipped at boot. Coordinates wrap: `(-1, -1)` is the chunk before
+   * `(0, 0)`. Returns `null` when no terrain source is available (a transport
+   * that cannot stream chunks simply renders void).
+   */
+  chunk?: (cx: number, cy: number) => ChunkView | null;
 }

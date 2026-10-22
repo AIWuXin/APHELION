@@ -13,8 +13,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { Command } from '../../web/src/generated/Command';
-import { decodeBootBlob, decodeSnapshot } from '../../web/src/net/decode';
+import { decodeBootBlob, decodeChunkView, decodeSnapshot } from '../../web/src/net/decode';
 import { encodeCommandBatch } from '../../web/src/net/encode';
+import { Reader } from '../../web/src/net/postcard';
+import { CLIENT_PROTOCOL } from '../../web/src/net/protocol';
 
 const fixtures = join(process.cwd(), 'web', 'tests', 'fixtures');
 
@@ -69,7 +71,7 @@ describe('boot blob', () => {
   it('decodes a catalogue with stable key order', () => {
     const bytes = readBytes('boot.bin');
     const boot = decodeBootBlob(bytes);
-    expect(boot.protocol).toBe(1);
+    expect(boot.protocol).toBe(CLIENT_PROTOCOL);
     expect(boot.catalog.buildings).toHaveLength(16);
     expect(boot.catalog.buildings[0]?.key).toBe('command-hub');
     // The hub is the colony's 3x3 landmark. A 2 here means the fixture is stale:
@@ -87,12 +89,64 @@ describe('boot blob', () => {
     expect(raid?.speaker).toBe('TACTICAL');
     expect(raid?.tone).toBe(2);
     expect(raid?.text_zh).toContain('掠袭');
-    expect(boot.map.w).toBe(44);
-    expect(boot.map.material).toHaveLength(44 * 44);
-    expect(boot.map.height).toHaveLength(44 * 44);
-    expect(boot.map.coal).toHaveLength(44 * 44);
-    // Height uses i8: brine tiles are -1, land is 0..3.
-    expect(Math.min(...boot.map.height)).toBeGreaterThanOrEqual(-1);
-    expect(Math.max(...boot.map.height)).toBeLessThanOrEqual(3);
+  });
+
+  it('carries the planet metadata instead of a tile array', () => {
+    const { map } = decodeBootBlob(readBytes('boot.bin'));
+    // Protocol 2: the planet is 10240 x 10240 generated per chunk, so the boot
+    // blob is dimensions + chunk size + the colony anchor, and nothing else.
+    expect(map.seed).toBe(0x5eed_1234);
+    expect(map.width).toBe(10_240);
+    expect(map.height).toBe(10_240);
+    expect(map.chunk_size).toBe(32);
+    expect(map.width % map.chunk_size).toBe(0);
+    expect(map.height % map.chunk_size).toBe(0);
+    expect(map.start_tx).toBeGreaterThan(0);
+    expect(map.start_tx).toBeLessThan(map.width);
+    expect(map.start_ty).toBeGreaterThan(0);
+    expect(map.start_ty).toBeLessThan(map.height);
+    // The old `MapView` fields must be gone, not merely unused.
+    expect(Object.keys(map).sort()).toEqual([
+      'chunk_size',
+      'height',
+      'seed',
+      'start_tx',
+      'start_ty',
+      'width',
+    ]);
+  });
+});
+
+describe('chunk view', () => {
+  it('decodes the Rust golden chunk byte for byte', () => {
+    const expected = JSON.parse(readFileSync(join(fixtures, 'chunk.json'), 'utf8')) as {
+      cx: number;
+      cy: number;
+      size: number;
+      terrain_head: number[];
+      decor_head: number[];
+      elev_head: number[];
+      ore_head: number[];
+      coal_head: number[];
+      ore_sum: number;
+      coal_sum: number;
+    };
+    const chunk = decodeChunkView(new Reader(readBytes('chunk.bin')));
+    expect(chunk.cx).toBe(expected.cx);
+    expect(chunk.cy).toBe(expected.cy);
+    // Five row-major arrays of chunk_size^2 entries each.
+    for (const field of ['terrain', 'decor', 'elev', 'ore', 'coal'] as const) {
+      expect(chunk[field], field).toHaveLength(expected.size);
+    }
+    expect(chunk.terrain.slice(0, 16)).toEqual(expected.terrain_head);
+    expect(chunk.decor.slice(0, 16)).toEqual(expected.decor_head);
+    // `elev` is the only signed array: -2 deep water, -1 shallow, 0..=3 land.
+    expect(chunk.elev.slice(0, 16)).toEqual(expected.elev_head);
+    expect(chunk.ore.slice(0, 16)).toEqual(expected.ore_head);
+    expect(chunk.coal.slice(0, 16)).toEqual(expected.coal_head);
+    const readSum = (values: readonly number[]): number =>
+      values.reduce((sum, v) => sum + v, 0);
+    expect(readSum(chunk.ore)).toBe(expected.ore_sum);
+    expect(readSum(chunk.coal)).toBe(expected.coal_sum);
   });
 });

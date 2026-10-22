@@ -34,7 +34,7 @@ pub use snapshot::{
     UNIT_STATE_DOCKED, UNIT_STATE_DYING, UNIT_STATE_IDLE, UNIT_STATE_MOVE,
 };
 pub use version::{banner, PRODUCT_VERSION, PROTOCOL_VERSION};
-pub use world::{BootBlob, MapView};
+pub use world::{BootBlob, ChunkView, MapView};
 
 /// Entity identifier. Monotonic within a session, never reused.
 pub type EntityId = u32;

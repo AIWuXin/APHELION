@@ -7,7 +7,7 @@
  */
 
 import { BUILDING_KEYS } from '../../generated/content-keys';
-import type { HudView } from '../hud-api';
+import type { HudView, TerrainLookup } from '../hud-api';
 import { h, setClass, setText } from '../dom';
 import { createPanel } from '../panel';
 import { Radar } from '../radar';
@@ -22,8 +22,8 @@ export class ScanPanel {
   private readonly intel: HTMLElement;
   private readonly intelText: HTMLElement;
 
-  public constructor(boot: HudView['boot']) {
-    this.radar = new Radar(boot);
+  public constructor(boot: HudView['boot'], terrain: TerrainLookup | null = null) {
+    this.radar = new Radar(boot, terrain);
 
     this.wave = h('span', { class: 'oc-scan__wave oc-num', text: 'WAVE 00' });
     const parts = createPanel('星区态势', 'TACTICAL SCAN', 'oc-panel--scan', this.wave);
@@ -31,7 +31,8 @@ export class ScanPanel {
     this.intelText = h('span', { text: '雷达在线' });
     this.intel = h('span', { class: 'oc-scan__intel' }, [h('i'), this.intelText]);
     const foot = h('div', { class: 'oc-scan__foot' }, [
-      h('span', { class: 'oc-scan__tag', text: 'SECTOR 07' }),
+      // The scan is local by design (96-tile radius), so the tag says so.
+      h('span', { class: 'oc-scan__tag', text: 'LOCAL 96T' }),
       this.intel,
       h('span', { class: 'oc-scan__tag', text: 'ORBITAL SHELL' }),
     ]);

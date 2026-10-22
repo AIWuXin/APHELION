@@ -11,3 +11,7 @@ crate-type = ["cdylib", "rlib"]
 oc-sim = { workspace = true }
 oc-protocol = { workspace = true }
 oc-content = { workspace = true }
+postcard = { workspace = true }
+
+[dev-dependencies]
+oc-iso = { workspace = true }

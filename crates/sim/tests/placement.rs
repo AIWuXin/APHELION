@@ -1,7 +1,11 @@
 //! Placement rules: terrain, occupancy, deposits, affordability and tech gates.
 
+mod common;
+
 use oc_content::buildings as b;
-use oc_content::terrain::{T_APRON, T_BRINE, T_CRYSTAL, T_ROAD};
+use oc_content::terrain::{
+    terrain_buildable, T_APRON, T_BRINE, T_CRYSTAL, T_DEEP, T_ROAD, T_SHALLOW,
+};
 use oc_protocol::{
     Command, REASON_ALLOY, REASON_LINK, REASON_LOCKED, REASON_OCCUPIED, REASON_TERRAIN,
 };
@@ -15,13 +19,9 @@ fn new_world() -> World {
 
 /// First legal 2x2 anchor with no mineral deposit under it.
 fn free_2x2_no_deposit(world: &World) -> (i32, i32) {
-    for ty in 0..=world.map.h - 2 {
-        for tx in 0..=world.map.w - 2 {
-            if world.query_place(b::B_SOLAR, tx, ty).ok
-                && world.map.footprint_deposit(tx, ty, 2) == 0
-            {
-                return (tx, ty);
-            }
+    for (tx, ty) in common::tiles(world) {
+        if world.query_place(b::B_SOLAR, tx, ty).ok && world.map.footprint_deposit(tx, ty, 2) == 0 {
+            return (tx, ty);
         }
     }
     panic!("no free 2x2 anchor without a deposit");
@@ -29,13 +29,11 @@ fn free_2x2_no_deposit(world: &World) -> (i32, i32) {
 
 /// First legal 2x2 anchor sitting on a mineral deposit.
 fn deposit_2x2(world: &World) -> (i32, i32) {
-    for ty in 0..=world.map.h - 2 {
-        for tx in 0..=world.map.w - 2 {
-            if world.map.footprint_deposit(tx, ty, 2) > 0
-                && world.query_place(b::B_REFINERY, tx, ty).placement_ok
-            {
-                return (tx, ty);
-            }
+    for (tx, ty) in common::tiles(world) {
+        if world.map.footprint_deposit(tx, ty, 2) > 0
+            && world.query_place(b::B_REFINERY, tx, ty).placement_ok
+        {
+            return (tx, ty);
         }
     }
     panic!("no free deposit footprint");
@@ -43,42 +41,40 @@ fn deposit_2x2(world: &World) -> (i32, i32) {
 
 /// First free tile of a given material.
 fn tile_of(world: &World, material: u8) -> (i32, i32) {
-    for ty in 0..world.map.h {
-        for tx in 0..world.map.w {
-            let Some(i) = world.map.index(tx, ty) else {
-                continue;
-            };
-            if world.map.material[i] == material && world.map.occupied[i] == 0 {
-                return (tx, ty);
-            }
-        }
-    }
-    panic!("no free tile of material {material}");
-}
-
-fn set_material(world: &mut World, tx: i32, ty: i32, size: i32, material: u8) {
-    for y in ty..ty + size {
-        for x in tx..tx + size {
-            if let Some(i) = world.map.index(x, y) {
-                world.map.material[i] = material;
-            }
-        }
-    }
+    common::tile_of(world, material)
 }
 
 #[test]
-fn cannot_build_on_brine_or_crystal() {
-    let mut world = new_world();
-    let (tx, ty) = free_2x2_no_deposit(&world);
-    set_material(&mut world, tx, ty, 2, T_BRINE);
-    let q = world.query_place(b::B_SOLAR, tx, ty);
+fn cannot_build_on_water_brine_or_crystal() {
+    let world = new_world();
+    // Terrain is generated now, not injected: find a real ocean tile through the
+    // pure climate function, then ask the world about it. The landing pad keeps
+    // the colony dry, so this has to look outside the colony.
+    let (wx, wy) = common::find_base_material(16, 1024, |m| matches!(m, T_SHALLOW | T_DEEP))
+        .expect("a planet with 35..75% ocean must expose a water tile");
+    assert!(
+        matches!(world.map.material_at(wx, wy), T_SHALLOW | T_DEEP),
+        "the world must agree with the climate function about water"
+    );
+    let q = world.query_place(b::B_SOLAR, wx, wy);
     assert!(!q.ok);
     assert!(!q.placement_ok);
     assert_eq!(q.reason, REASON_TERRAIN);
 
-    set_material(&mut world, tx, ty, 2, T_CRYSTAL);
-    let q = world.query_place(b::B_SOLAR, tx, ty);
-    assert_eq!(q.reason, REASON_TERRAIN);
+    // Brine pans and crystal fields are unbuildable rows too. They are rarer, so
+    // the world check is best-effort on this seed -- the shared
+    // `terrain_buildable` path is asserted unconditionally.
+    assert!(!terrain_buildable(T_BRINE));
+    assert!(!terrain_buildable(T_CRYSTAL));
+    for material in [T_BRINE, T_CRYSTAL] {
+        if let Some((x, y)) = common::find_base_material(8, 2048, |m| m == material) {
+            assert_eq!(
+                world.query_place(b::B_SOLAR, x, y).reason,
+                REASON_TERRAIN,
+                "material {material} at ({x},{y}) must reject construction"
+            );
+        }
+    }
 }
 
 #[test]
@@ -145,12 +141,12 @@ fn demolition_frees_the_tiles_and_refunds_alloy() {
     let built = world.buildings.last().expect("turret placed").clone();
     assert_eq!(built.kind, b::B_TURRET);
     assert_eq!(world.res.alloy, 1_000 - World::def(b::B_TURRET).cost_alloy);
-    assert_ne!(world.map.occupied[world.map.index(rx, ry).unwrap()], 0);
+    assert_ne!(world.map.occupant(rx, ry), 0);
 
     world.push(Command::Demolish { id: built.id });
     world.step();
     assert!(!world.buildings.iter().any(|x| x.id == built.id));
-    assert_eq!(world.map.occupied[world.map.index(rx, ry).unwrap()], 0);
+    assert_eq!(world.map.occupant(rx, ry), 0);
     // 40% of the 85-alloy cost is refunded.
     assert_eq!(world.res.alloy, 1_000 - 85 + 34);
     assert!(world.query_place(b::B_TURRET, rx, ry).ok);

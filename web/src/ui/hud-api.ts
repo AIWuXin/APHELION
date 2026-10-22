@@ -60,7 +60,27 @@ export interface HudView {
     readonly stepMs: number;
     readonly snapshotBytes: number;
     readonly banner: string;
+    /** Wrapped camera anchor tile, e.g. `5122,5126`. */
+    readonly anchor: string;
+    /** Wrapped hovered tile, or `--` when the pointer is off world. */
+    readonly hover: string;
+    /** Streamed terrain counters (`chunks visible/resident/pending`). */
+    readonly terrain: string;
   } | null;
+}
+
+/**
+ * Read-only terrain probe handed to the HUD.
+ *
+ * The tactical scan samples the same streamed chunk store the world renderer
+ * uses, but it may only *read* it -- and it may ask for a chunk to be fetched, so
+ * the scan still fills in while the camera is looking somewhere else.
+ */
+export interface TerrainLookup {
+  /** Effective material at a wrapped tile, or `-1` when not resident. */
+  readonly material: (tx: number, ty: number) => number;
+  /** Request that the chunk containing a tile be streamed. */
+  readonly ensure: (tx: number, ty: number) => void;
 }
 
 /** The mounted HUD. */

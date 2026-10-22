@@ -27,6 +27,8 @@ export interface DemoApi {
   readonly snapshot: () => Snapshot | null;
   /** Static building table, so a step can honour its era tier. */
   readonly buildings: readonly BuildingDef[];
+  /** Colony anchor tile from the boot blob; the build spiral walks out from it. */
+  readonly anchor: { readonly tx: number; readonly ty: number };
 }
 
 /** Building table indices used by the script (mirrors `oc-content`). */
@@ -52,8 +54,10 @@ const K = {
 function findSpot(api: DemoApi, kind: number, fromRing = 3): { tx: number; ty: number } | null {
   const snap = api.snapshot();
   if (!snap) return null;
-  const cx = 20;
-  const cy = 20;
+  // Spiral out from the colony anchor the boot blob reported, not from a fixed
+  // tile: the home tile is found by the kernel's spiral and moves with the seed.
+  const cx = api.anchor.tx;
+  const cy = api.anchor.ty;
   for (let ring = fromRing; ring < 14; ring += 1) {
     for (let dy = -ring; dy <= ring; dy += 1) {
       for (let dx = -ring; dx <= ring; dx += 1) {

@@ -1,9 +1,11 @@
-//! Native tests for the raw bridge ABI: allocation hygiene, query packing and
-//! the out-of-range kind guard.
+//! Native tests for the raw bridge ABI: allocation hygiene, query packing, the
+//! out-of-range kind guard and the chunk streaming export.
 
-use oc_bridge_wasm::{oc_alloc, oc_apply, oc_free, oc_init, oc_query_place, oc_tick};
+use oc_bridge_wasm::{
+    oc_alloc, oc_apply, oc_chunk, oc_chunk_len, oc_free, oc_init, oc_query_place, oc_tick,
+};
 use oc_content::buildings;
-use oc_protocol::BuildQuery;
+use oc_protocol::{BuildQuery, ChunkView};
 use oc_sim::World;
 
 /// Unpack the fields `oc_query_place` carries in its bit layout.
@@ -16,6 +18,22 @@ fn unpack(packed: u32) -> (bool, bool, bool, bool, u8, i16) {
         ((packed >> 8) & 0xFF) as u8,
         (packed >> 16) as u16 as i16,
     )
+}
+
+/// Deterministic local window of anchors around the colony (the planet is too
+/// big to scan exhaustively).
+fn local_anchors(world: &World) -> Vec<(i32, i32)> {
+    let (cx, cy) = world.map.start;
+    let mut out = Vec::new();
+    for dy in -20..=20 {
+        for dx in -20..=20 {
+            out.push((
+                oc_iso::torus::wrap_x(cx + dx),
+                oc_iso::torus::wrap_y(cy + dy),
+            ));
+        }
+    }
+    out
 }
 
 #[test]
@@ -35,8 +53,8 @@ fn query_place_packing_matches_the_query_struct() {
     oc_init(SEED);
     let world = World::new(SEED);
     let kind = buildings::B_SOLAR;
-    let (tx, ty) = (0..world.map.h)
-        .flat_map(|ty| (0..world.map.w).map(move |tx| (tx, ty)))
+    let (tx, ty) = local_anchors(&world)
+        .into_iter()
         .find(|&(tx, ty)| world.query_place(kind, tx, ty).placement_ok)
         .expect("at least one legal solar anchor");
     let q: BuildQuery = world.query_place(kind, tx, ty);
@@ -53,6 +71,33 @@ fn query_place_packing_matches_the_query_struct() {
             q.cost_alloy as i16,
         )
     );
+}
+
+#[test]
+fn chunk_export_streams_wrapped_chunks() {
+    const SEED: u32 = 0x5EED_1234;
+    oc_init(SEED);
+    let world = World::new(SEED);
+    let ptr = oc_chunk(2, 3);
+    let len = oc_chunk_len();
+    assert!(!ptr.is_null() && len > 0, "oc_chunk must encode a chunk");
+    let bytes = unsafe { core::slice::from_raw_parts(ptr, len) }.to_vec();
+    let view: ChunkView = postcard::from_bytes(&bytes).expect("decode chunk");
+    assert_eq!((view.cx, view.cy), (2, 3));
+    assert_eq!(view.terrain.len(), 1024);
+    assert_eq!(view.elev.len(), 1024);
+    assert_eq!(view.terrain, world.chunk_view(2, 3).terrain);
+
+    // Negative coordinates wrap to the far side of the torus.
+    let ptr = oc_chunk(-1, -1);
+    let len = oc_chunk_len();
+    let bytes = unsafe { core::slice::from_raw_parts(ptr, len) }.to_vec();
+    let wrapped: ChunkView = postcard::from_bytes(&bytes).expect("decode wrapped chunk");
+    assert_eq!(
+        (wrapped.cx, wrapped.cy),
+        (oc_iso::torus::CHUNKS - 1, oc_iso::torus::CHUNKS - 1)
+    );
+    assert_eq!(wrapped.terrain, world.chunk_view(-1, -1).terrain);
 }
 
 #[test]

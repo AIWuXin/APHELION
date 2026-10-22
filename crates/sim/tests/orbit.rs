@@ -1,5 +1,7 @@
 //! Orbital lift: rockets raise capacity, relay masts add lift, lanes spend it.
 
+mod common;
+
 use oc_content::balance;
 use oc_content::buildings as b;
 use oc_content::routes::ROUTES;
@@ -16,11 +18,9 @@ fn new_world() -> World {
 
 /// First legal 2x2 anchor for a pad or dock.
 fn free_2x2(world: &World) -> (i32, i32) {
-    for ty in 0..=world.map.h - 2 {
-        for tx in 0..=world.map.w - 2 {
-            if world.query_place(b::B_SOLAR, tx, ty).placement_ok {
-                return (tx, ty);
-            }
+    for (tx, ty) in common::tiles(world) {
+        if world.query_place(b::B_SOLAR, tx, ty).placement_ok {
+            return (tx, ty);
         }
     }
     panic!("no free 2x2 anchor");

@@ -35,10 +35,15 @@ const MIN_HEIGHT: f64 = 640.0;
 ///
 /// `query` 会原样传给页面，使 `--seed` / `--debug` 与网页版（`?seed=N`、
 /// `?debug=1`）语义一致。窗口标题的版本号来自 `oc_protocol::PRODUCT_VERSION`，
-/// 不存在第二处硬编码。
+/// 不存在第二处硬编码；构建戳来自 `build.rs` 注入的编译期常量，凭空认出
+/// 手里这个 exe 是哪一天哪一分钟编出来的。
 pub fn run(query: &str) -> Result<(), String> {
     let event_loop = EventLoop::new();
-    let title = format!("APHELION · 远日点指挥终端 {}", oc_protocol::PRODUCT_VERSION);
+    let title = format!(
+        "APHELION · 远日点 {}{suffix}",
+        oc_protocol::PRODUCT_VERSION,
+        suffix = build_stamp_suffix(),
+    );
     let icon = Icon::from_rgba(ICON_RGBA.to_vec(), ICON_SIZE, ICON_SIZE).ok();
     let position = centered_position(&event_loop);
 
@@ -129,6 +134,26 @@ fn webview_data_directory() -> Option<PathBuf> {
         return None;
     }
     Some(data_directory)
+}
+
+/// Title-bar suffix for the build stamp: ` · 1022-1120`, or nothing.
+///
+/// `build.rs` injects `OC_BUILD_STAMP` as `2026-10-22 11:20` (local time). Title bars
+/// are tight, so the suffix keeps only month-day and hour-minute. A build
+/// without the variable (non-Windows) simply shows no suffix.
+fn build_stamp_suffix() -> String {
+    let stamp = option_env!("OC_BUILD_STAMP").unwrap_or("");
+    let mut fields = stamp.split([' ', '-', ':']);
+    let (Some(_), Some(month), Some(day), Some(hour), Some(minute)) = (
+        fields.next(),
+        fields.next(),
+        fields.next(),
+        fields.next(),
+        fields.next(),
+    ) else {
+        return String::new();
+    };
+    format!(" · {month}{day}-{hour}{minute}")
 }
 
 /// Center the initial window on the primary monitor.

@@ -12,6 +12,7 @@ import type { BootBlob } from '../generated/BootBlob';
 import type { BuildingDef } from '../generated/BuildingDef';
 import type { BuildingView } from '../generated/BuildingView';
 import type { Catalog } from '../generated/Catalog';
+import type { ChunkView } from '../generated/ChunkView';
 import type { EffectView } from '../generated/EffectView';
 import type { EventDef } from '../generated/EventDef';
 import type { EventView } from '../generated/EventView';
@@ -271,25 +272,38 @@ export function decodeCatalog(r: Reader): Catalog {
 }
 
 export function decodeMapView(r: Reader): MapView {
-  const w = r.u32();
-  const h = r.u32();
-  // Each tile array is a postcard `Vec<T>`: varint count followed by the items.
-  const materialCount = r.len();
-  const material = new Array<number>(materialCount);
-  for (let i = 0; i < materialCount; i += 1) material[i] = r.u8();
-  const heightCount = r.len();
-  const height = new Array<number>(heightCount);
-  for (let i = 0; i < heightCount; i += 1) height[i] = r.i8();
+  // Protocol 2: the planet is no longer shipped as tile arrays. `u16` fields
+  // are postcard varints, so the `u32` reader covers them.
+  return {
+    seed: r.u32(),
+    width: r.u32(),
+    height: r.u32(),
+    chunk_size: r.u32(),
+    start_tx: r.u32(),
+    start_ty: r.u32(),
+  };
+}
+
+/** One 32x32 chunk, row-major, five `chunk_size^2` arrays. */
+export function decodeChunkView(r: Reader): ChunkView {
+  const cx = r.i32();
+  const cy = r.i32();
+  const count = r.len();
+  const terrain = new Array<number>(count);
+  for (let i = 0; i < count; i += 1) terrain[i] = r.u8();
   const decorCount = r.len();
   const decor = new Array<number>(decorCount);
   for (let i = 0; i < decorCount; i += 1) decor[i] = r.u8();
-  const depositCount = r.len();
-  const deposit = new Array<number>(depositCount);
-  for (let i = 0; i < depositCount; i += 1) deposit[i] = r.u8();
+  const elevCount = r.len();
+  const elev = new Array<number>(elevCount);
+  for (let i = 0; i < elevCount; i += 1) elev[i] = r.i8();
+  const oreCount = r.len();
+  const ore = new Array<number>(oreCount);
+  for (let i = 0; i < oreCount; i += 1) ore[i] = r.u8();
   const coalCount = r.len();
   const coal = new Array<number>(coalCount);
   for (let i = 0; i < coalCount; i += 1) coal[i] = r.u8();
-  return { w, h, material, height, decor, deposit, coal };
+  return { cx, cy, terrain, decor, elev, ore, coal };
 }
 
 export function decodeBootBlob(bytes: ArrayBufferView): BootBlob {

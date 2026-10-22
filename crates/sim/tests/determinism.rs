@@ -5,6 +5,8 @@
 //! `apply_bytes` (the exact path the wasm bridge uses). Any hidden ordering or
 //! encoding dependence shows up as a hash mismatch.
 
+mod common;
+
 use oc_content::buildings as b;
 use oc_protocol::{Command, CommandBatch};
 use oc_sim::World;
@@ -12,19 +14,19 @@ use oc_sim::World;
 const SEED: u32 = 0x5EED_1234;
 const TICKS: u32 = 2000;
 
-/// Find the nearest legal anchor for `kind` in the probe world (deterministic).
+/// Find the nearest legal anchor for `kind` around the colony (deterministic).
+///
+/// The planet is 100 million tiles, so the script searches the same local window
+/// the scripted CLI uses instead of walking the whole map.
 fn anchor(probe: &World, kind: u8) -> (u16, u16) {
-    let size = i32::from(World::def(kind).footprint);
     let mut sample = None;
-    for ty in 0..=probe.map.h - size {
-        for tx in 0..=probe.map.w - size {
-            let q = probe.query_place(kind, tx, ty);
-            if sample.is_none() {
-                sample = Some(q);
-            }
-            if q.ok {
-                return (tx as u16, ty as u16);
-            }
+    for (tx, ty) in common::tiles(probe) {
+        let q = probe.query_place(kind, tx, ty);
+        if sample.is_none() {
+            sample = Some(q);
+        }
+        if q.ok {
+            return (tx as u16, ty as u16);
         }
     }
     panic!("no legal anchor for building {kind}: sample={sample:?}");

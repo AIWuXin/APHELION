@@ -13,7 +13,9 @@
  * `CHUNK + 4` square and the inner 32x32 is what the painter sees. Doing it
  * here instead of inside the bake keeps companion patches continuous across
  * chunk borders -- otherwise a straight line of patches would end along every
- * 32-tile seam.
+ * 32-tile seam. The halo can arrive after the chunk itself, so a table derived
+ * from a partial neighbourhood is provisional; {@link ChunkStore.ensureRing}
+ * re-derives it once the cardinals are resident.
  */
 
 import type { ChunkView } from '../../generated/ChunkView';
@@ -60,8 +62,13 @@ interface LoadedChunk {
   readonly cx: number;
   readonly cy: number;
   readonly view: ChunkView;
-  /** Effective material per local tile, row-major. */
-  readonly material: Int16Array;
+  /**
+   * Effective material per local tile, row-major. Replaced in place once if the
+   * first derivation ran without its halo (see {@link ensureRing}).
+   */
+  material: Int16Array;
+  /** True when the four cardinal neighbours were resident for `material`. */
+  halo: boolean;
   /** Flat colour used while this chunk is still baking. */
   readonly dominant: string;
 }
@@ -112,7 +119,14 @@ export class ChunkStore {
     return this.fetched;
   }
 
-  /** Resident chunk, fetching it on demand. Coordinates wrap. */
+  /**
+   * Resident chunk, fetching it on demand. Coordinates wrap.
+   *
+   * A first fetch can derive materials before the halo is resident, so the
+   * table is provisional until {@link ensureRing} has seen the neighbourhood.
+   * Repair mutates the record in place: re-inserting it would change its LRU
+   * position and make cached materials look fresher than they are.
+   */
   public ensure(cx: number, cy: number): LoadedChunk | null {
     const wx = wrapIndex(cx, this.cw);
     const wy = wrapIndex(cy, this.ch);
@@ -129,11 +143,13 @@ export class ChunkStore {
     this.fetched += 1;
     const view = source.chunk(wx, wy);
     if (!view || view.terrain.length === 0) return null;
+    const derived = this.deriveMaterials(wx, wy, view);
     const loaded: LoadedChunk = {
       cx: wx,
       cy: wy,
       view,
-      material: this.deriveMaterials(wx, wy, view),
+      material: derived.material,
+      halo: derived.halo,
       dominant: dominantColour(view),
     };
     this.cache.set(key, loaded);
@@ -145,21 +161,35 @@ export class ChunkStore {
   }
 
   /**
-   * Ensure the 3x3 chunk neighbourhood, centre first, so mask halos and probes
-   * resolve.
+   * Ensure the 3x3 chunk neighbourhood, centre first, then re-derive the centre
+   * once if it was built without a halo.
    *
    * The centre goes first on purpose: the caller almost always wants *this*
    * chunk to start a canvas now, while the halo only feeds the companion mask
    * two tiles into the neighbours. Fetching the north-west corner first spent a
    * whole frame's fetch budget and still left the chunk the frame was waiting
    * for in the queue.
+   *
+   * That order means the first derivation clamps a missing halo to the centre's
+   * own edge, which is what produced load-order-dependent borders. The repair
+   * below runs after the ring is resident, so by the time a canvas can be
+   * created the table is the full-halo one. It re-derives at most once per
+   * resident chunk: re-deriving after each neighbour arrival would multiply the
+   * mask work by nine for the same final table, and a neighbour that never
+   * arrives must not cause a retry every frame (hence the `haloResident` gate,
+   * which is four map lookups when the ring is still incomplete).
    */
   public ensureRing(cx: number, cy: number): void {
-    this.ensure(cx, cy);
+    const centre = this.ensure(cx, cy);
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
         if (dx !== 0 || dy !== 0) this.ensure(cx + dx, cy + dy);
       }
+    }
+    if (centre && !centre.halo && this.haloResident(centre.cx, centre.cy)) {
+      const derived = this.deriveMaterials(centre.cx, centre.cy, centre.view);
+      centre.material = derived.material;
+      centre.halo = derived.halo;
     }
   }
 
@@ -249,9 +279,14 @@ export class ChunkStore {
    * this runs before the chunk is inserted into the cache (`peek` would miss and
    * fall back to basalt). Only the two-tile halo is read through the cache; when
    * a neighbour has not been fetched yet the halo clamps to this chunk's edge
-   * tile -- a missing halo can only cost companion detail on the border.
+   * tile and `halo` comes back false, so {@link ensureRing} can re-derive once
+   * the neighbourhood is resident.
    */
-  private deriveMaterials(cx: number, cy: number, view: ChunkView): Int16Array {
+  private deriveMaterials(
+    cx: number,
+    cy: number,
+    view: ChunkView,
+  ): { readonly material: Int16Array; readonly halo: boolean } {
     const edge = this.edge;
     const span = edge + HALO * 2;
     const raw = new Uint8Array(span * span);
@@ -301,7 +336,26 @@ export class ChunkStore {
         out[ly * edge + lx] = effective;
       }
     }
-    return out;
+    return { material: out, halo: this.haloResident(cx, cy) };
+  }
+
+  /**
+   * Are the four cardinal neighbours resident?
+   *
+   * Two passes of the 4-neighbour filter reach two tiles out along each axis,
+   * but never into a diagonal chunk: a halo corner sits at Manhattan distance
+   * four from the inner 32x32 and cannot affect it. Diagonals are still fetched
+   * by {@link ensureRing}; they are only not needed to call the table complete.
+   */
+  private haloResident(cx: number, cy: number): boolean {
+    const key = (ox: number, oy: number): number =>
+      wrapIndex(cy + oy, this.ch) * this.cw + wrapIndex(cx + ox, this.cw);
+    return (
+      this.cache.has(key(-1, 0)) &&
+      this.cache.has(key(1, 0)) &&
+      this.cache.has(key(0, -1)) &&
+      this.cache.has(key(0, 1))
+    );
   }
 }
 

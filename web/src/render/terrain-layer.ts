@@ -156,7 +156,7 @@ export class TerrainLayer {
   public warm(cam: Camera): void {
     this.refreshVisible(cam);
     for (const ref of this.visible) {
-      this.store.ensure(ref.cx, ref.cy);
+      // The ring includes the chunk and re-derives it once the halo is present.
       this.store.ensureRing(ref.cx, ref.cy);
     }
     for (const ref of this.visible) {
@@ -238,8 +238,9 @@ export class TerrainLayer {
    *
    * 1. the records of the chunks on screen, nearest first -- a canvas cannot
    *    start without its own tiles;
-   * 2. the two-tile halo the companion mask reads through (a missing halo only
-   *    costs border detail, it clamps);
+   * 2. the two-tile halo the companion mask reads through; `ensureRing` also
+   *    re-derives a chunk whose first fetch predates its halo, so phase 1's
+   *    clamped border never reaches a canvas;
    * 3. the ring, which is where the camera is heading.
    */
   private fetchData(): void {
@@ -254,7 +255,8 @@ export class TerrainLayer {
       if (budget <= 0) return;
       const before = this.store.fetches;
       // The 3x3 neighbourhood, not just the chunk: the companion mask halo and
-      // the cliff/shore probes both read one tile into the neighbours.
+      // the cliff/shore probes both read one tile into the neighbours, and the
+      // ring fetch is what upgrades a phase-1 table that clamped its border.
       this.store.ensureRing(ref.cx, ref.cy);
       budget -= this.store.fetches - before;
     }
@@ -305,8 +307,9 @@ export class TerrainLayer {
   private ensureSurface(ref: VisibleChunk): ChunkSurface | null {
     const hit = this.cache.get(ref.cx, ref.cy);
     if (hit) return hit;
-    // Halo first: the companion mask reads two tiles into the neighbours, so the
-    // ring has to be resident before the material table is derived.
+    // Halo first: the companion mask reads two tiles into the neighbours, and
+    // this call re-derives the centre once they are resident. A canvas must
+    // never start from the clamped border a cold first fetch produced.
     this.store.ensureRing(ref.cx, ref.cy);
     const loaded = this.store.ensure(ref.cx, ref.cy);
     if (!loaded) return null;

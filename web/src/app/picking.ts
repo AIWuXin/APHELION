@@ -54,8 +54,8 @@ export function buildingAt(
 ): BuildingView | undefined {
   return buildings.find((b) => {
     const size = footprintOf(b.kind);
-    const dx = deltaSpan(tile.tx, b.tx + size / 2, tile.w);
-    const dy = deltaSpan(tile.ty, b.ty + size / 2, tile.h);
+    const dx = deltaSpan(tile.tx + TILE_OFFSET, b.tx + size / 2, tile.w);
+    const dy = deltaSpan(tile.ty + TILE_OFFSET, b.ty + size / 2, tile.h);
     return Math.abs(dx) <= size / 2 - 0.01 && Math.abs(dy) <= size / 2 - 0.01;
   });
 }

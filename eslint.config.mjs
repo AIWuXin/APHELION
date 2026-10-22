@@ -79,6 +79,11 @@ export default tseslint.config(
     rules: { 'no-restricted-imports': 'off' },
   },
   {
+    // Tests exercise units directly; the layer graph constrains shipped code.
+    files: ['web/tests/**/*.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+  {
     files: ['scripts/**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
     rules: { 'no-restricted-imports': 'off' },

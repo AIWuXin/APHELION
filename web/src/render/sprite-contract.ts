@@ -35,6 +35,33 @@ export type BuildingPainter = (
   def: BuildingDef,
 ) => void;
 
+export interface SpriteBox {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+export interface BuildingBodyEnv {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly tile: number;
+}
+
+export type BuildingBodyPainter = (
+  env: BuildingBodyEnv,
+  cx: number,
+  cy: number,
+  def: BuildingDef,
+) => void;
+
+export interface BuildingArt {
+  /** Null only while a legacy painter is being migrated to a static body. */
+  readonly body: BuildingBodyPainter | null;
+  readonly motion: BuildingPainter | null;
+  readonly bounds: SpriteBox;
+  readonly healthY: number;
+}
+
 /**
  * The fields every craft painter may read. Ground units and orbital contacts
  * share these, so one painter can serve both. `facing` is optional because

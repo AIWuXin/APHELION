@@ -33,7 +33,8 @@ import type { Camera } from './iso';
 import { deltaSpan } from './torus';
 import { line } from './primitives';
 import { drawAirShadows, drawInteraction, drawRouteTraces } from './overlays';
-import { BUILDING_PAINTERS } from './sprites/buildings';
+import { BuildingRenderer } from './sprites/building-renderer';
+import { rasterScale } from './sprites/sprite-cache';
 import { SHIP_PAINTERS, UNIT_PAINTERS } from './sprites/units';
 import { TerrainLayer } from './terrain-layer';
 import type { TerrainStats } from './terrain-layer';
@@ -89,6 +90,7 @@ export class Renderer {
   private dpr = 1;
   private width = 0;
   private height = 0;
+  private readonly buildingRenderer = new BuildingRenderer();
 
   public constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -173,20 +175,21 @@ export class Renderer {
     const world = { w: cam.worldW, h: cam.worldH };
 
     // ---- buildings (static) -------------------------------------------
+    const scale = rasterScale(this.dpr, zoom);
     for (const b of frame.snapshot.buildings) {
       const def = frame.boot.catalog.buildings[b.kind];
       if (!def) continue;
       const size = def.footprint;
+      const key = BUILDING_KEYS[b.kind] ?? 'command-hub';
       const rel = toRel(cam, b.tx + size / 2, b.ty + size / 2);
       const anchor = toScreen(cam, b.tx + size / 2, b.ty + size / 2, 0);
-      const painter = BUILDING_PAINTERS[BUILDING_KEYS[b.kind] ?? 'command-hub'];
       ground.push({
         depth: (rel.x + rel.y) * 2,
         draw: () => {
-          painter(env, anchor.x, anchor.y, b, def);
-          // Clear the silhouette, including the 3x3 hub's antenna mast.
-          const chip = size >= 3 ? 146 : size === 2 ? 92 : 76;
-          if (b.hp < b.hp_max) this.health(anchor.x, anchor.y - chip, b.hp, b.hp_max);
+          this.buildingRenderer.drawBuilding(env, anchor.x, anchor.y, key, b, def, scale);
+          if (b.hp < b.hp_max) {
+            this.health(anchor.x, anchor.y + this.buildingRenderer.healthY(key), b.hp, b.hp_max);
+          }
         },
       });
     }

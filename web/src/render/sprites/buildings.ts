@@ -1,56 +1,42 @@
-/**
- * Building art registry.
- *
- * The 16 bespoke painters live in five sibling modules (structures / landmarks /
- * industry / orbital / defence) so no file turns into a dumping ground. Every
- * painter is wrapped by `withStates`, which adds the shared build-site scaffold
- * and damaged overlays, so state feedback can never diverge between structure
- * types.
- *
- * `BuildingKey` is generated from the Rust table: appending a building without
- * adding a painter is a TypeScript error, not a runtime surprise.
- */
-
 import type { BuildingKey } from '../../generated/content-keys';
-import type { BuildingPainter } from '../sprite-contract';
+import type { BuildingArt, BuildingPainter, SpriteBox } from '../sprite-contract';
 import { DEFENCE } from './buildings/defence';
 import { INDUSTRY } from './buildings/industry';
 import { LANDMARKS } from './buildings/landmarks';
 import { ORBITAL } from './buildings/orbital';
 import { STRUCTURES } from './buildings/structures';
-import { plinth, withStates } from './detail';
+import { plinth } from './detail';
 
 const RAW: Readonly<Record<string, BuildingPainter>> = {
-  ...STRUCTURES,
-  ...LANDMARKS,
-  ...INDUSTRY,
-  ...ORBITAL,
-  ...DEFENCE,
+  ...STRUCTURES, ...LANDMARKS, ...INDUSTRY, ...ORBITAL, ...DEFENCE,
 };
-
-/** Empty pad used if a painter is missing; keeps the registry total. */
 const FALLBACK: BuildingPainter = (env, cx, cy) => plinth(env.ctx, cx, cy, 1);
 
-function painterOf(key: BuildingKey): BuildingPainter {
-  return withStates(RAW[key] ?? FALLBACK);
+function bounds(size: number): SpriteBox {
+  const healthY = size >= 3 ? -146 : size === 2 ? -92 : -76;
+  return { left: -size * 48 - 16, top: healthY - 16, right: size * 48 + 16, bottom: size * 20 + 20 };
 }
 
-/** Complete painter registry, keyed by the generated content key. */
-export const BUILDING_PAINTERS: Readonly<Record<BuildingKey, BuildingPainter>> = {
-  'command-hub': painterOf('command-hub'),
-  'solar-array': painterOf('solar-array'),
-  refinery: painterOf('refinery'),
-  'fuel-synth': painterOf('fuel-synth'),
-  'research-lab': painterOf('research-lab'),
-  'launch-pad': painterOf('launch-pad'),
-  'freight-dock': painterOf('freight-dock'),
-  'relay-mast': painterOf('relay-mast'),
-  'rail-turret': painterOf('rail-turret'),
-  'flak-battery': painterOf('flak-battery'),
-  bulwark: painterOf('bulwark'),
-  hangar: painterOf('hangar'),
-  'radar-array': painterOf('radar-array'),
-  'repair-bay': painterOf('repair-bay'),
-  'coal-mine': painterOf('coal-mine'),
-  'coal-plant': painterOf('coal-plant'),
-};
+/** Compatibility adapter: state is handled once by BuildingRenderer, not here. */
+function legacy(key: BuildingKey, size: number) {
+  return { body: null, motion: RAW[key] ?? FALLBACK, bounds: bounds(size), healthY: size >= 3 ? -146 : size === 2 ? -92 : -76 } as const;
+}
+
+export const BUILDING_ART = {
+  'command-hub': legacy('command-hub', 3),
+  'solar-array': legacy('solar-array', 2),
+  refinery: legacy('refinery', 2),
+  'fuel-synth': legacy('fuel-synth', 2),
+  'research-lab': legacy('research-lab', 2),
+  'launch-pad': legacy('launch-pad', 2),
+  'freight-dock': legacy('freight-dock', 2),
+  'relay-mast': legacy('relay-mast', 1),
+  'rail-turret': legacy('rail-turret', 1),
+  'flak-battery': legacy('flak-battery', 1),
+  bulwark: legacy('bulwark', 1),
+  hangar: legacy('hangar', 2),
+  'radar-array': legacy('radar-array', 2),
+  'repair-bay': legacy('repair-bay', 1),
+  'coal-mine': legacy('coal-mine', 2),
+  'coal-plant': legacy('coal-plant', 2),
+} as const satisfies Readonly<Record<BuildingKey, BuildingArt>>;

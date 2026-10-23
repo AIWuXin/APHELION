@@ -34,7 +34,7 @@
 .oc-tech__en {
   overflow: hidden;
   font-family: var(--oc-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.16em;
   color: var(--oc-ink-3);
   white-space: nowrap;
@@ -71,7 +71,7 @@
 }
 
 .oc-tech__stock {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.16em;
   color: var(--oc-primary);
 }
@@ -102,16 +102,16 @@
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 48px;
+  height: 38px;
   background: var(--oc-void);
-  border: 1px solid var(--oc-line);
-  color: var(--oc-ink-2);
+  border: 1px solid var(--oc-line-bright);
+  color: var(--oc-signal-function);
 }
 
 .oc-readout__art svg {
-  width: 18px;
-  height: 18px;
+  width: 44px;
+  height: 33px;
 }
 
 .oc-readout__id {
@@ -132,7 +132,7 @@
 .oc-readout__sub {
   overflow: hidden;
   font-family: var(--oc-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.2em;
   color: var(--oc-ink-3);
   white-space: nowrap;
@@ -228,14 +228,14 @@
 
 .oc-log__time {
   flex: 0 0 auto;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--oc-ink-3);
 }
 
 .oc-log__text {
   overflow: hidden;
   min-width: 0;
-  font-size: 10px;
+  font-size: var(--oc-fs-md);
   line-height: 1.35;
   color: var(--oc-ink-2);
   white-space: nowrap;

@@ -6,9 +6,9 @@
  * per frame, and feeds the presentation-side event pipeline (log → subtitle →
  * alert strip).
  *
- * Material contract (see `hud.css`): matte near-black steel plates, 1px cold
- * steel borders with a brighter top edge, right angles only, no blur / glow /
- * gradient washes. Three type tiers, numeric readouts in tabular monospace.
+ * Material contract (see `hud.css`): warm engineering panels with dark data
+ * windows, fine structural rules, no blur or external assets. Three type tiers,
+ * numeric readouts in tabular monospace.
  */
 
 import { h } from './dom';
@@ -29,6 +29,7 @@ import './hud.css';
 import './topbar.css';
 import './overlays.css';
 import './panels.css';
+import './fabricator.css';
 import './intel.css';
 
 /** Everything mounted once the first view arrives. */

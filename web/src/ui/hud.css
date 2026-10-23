@@ -1,9 +1,6 @@
-/* APHELION — HUD foundation.
-   Matte near-black steel plates, 1px cold-steel borders with a brighter top edge,
-   right angles only (radius ≤2px), no glassmorphism / blur / glow / gradient
-   washes. Numbers are tabular monospace. Top bar lives in topbar.css, overlays
-   (sandbox / subtitle / alert / debug) in overlays.css, panel internals in
-   panels.css. */
+/* Warm engineering-paper panels, dark data windows, right angles and hairlines.
+   No glass, blur, external fonts or image assets. Component styles are split by
+   panel responsibility; all colours originate in the shared palette tokens. */
 
 /* ---------- 0. foundation ---------- */
 .oc-hud {
@@ -103,7 +100,7 @@
   font-family: var(--oc-font-mono);
   font-size: var(--oc-fs-sm);
   line-height: 1;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.17em;
   text-transform: uppercase;
   color: var(--oc-ink-3);
   white-space: nowrap;
@@ -214,7 +211,7 @@
   flex-direction: column;
   gap: 5px;
   padding: 5px;
-  background: var(--oc-void);
+  background: var(--oc-panel-2);
   border-left: 1px solid var(--oc-line-bright);
   overflow-y: auto;
   overflow-x: hidden;

@@ -22,7 +22,9 @@ import type { BootBlob } from '../generated/BootBlob';
 import type { BuildingView } from '../generated/BuildingView';
 import { BUILDING_KEYS } from '../generated/content-keys';
 import type { HudView, TerrainLookup } from './hud-api';
-import { PALETTE, rgba } from '../style/tokens';
+import { rgba } from '../style/tokens';
+import { RADAR_PALETTE as PALETTE } from './radar-palette';
+import { buildingCentre } from './radar-layout';
 import { deltaSpan } from '../render/torus';
 import { RADAR_RADIUS, drawFrame, drawGrid, drawOrbits, drawSweep } from './radar-chrome';
 
@@ -109,7 +111,7 @@ export class Radar {
     const ry = h * 0.37;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = PALETTE.panel;
+    ctx.fillStyle = PALETTE.void;
     ctx.fillRect(0, 0, w, h);
 
     // Ground first, then the graticule over it: the range rings have to stay
@@ -144,8 +146,10 @@ export class Radar {
    */
   private trackCentre(view: HudView): void {
     const hub = view.snapshot.buildings.find((b) => b.kind === HUB);
-    const tx = hub ? hub.tx + 1 : this.boot.map.start_tx;
-    const ty = hub ? hub.ty + 1 : this.boot.map.start_ty;
+    const size = hub ? (this.boot.catalog.buildings[hub.kind]?.footprint ?? 1) : 1;
+    const [tx, ty] = hub
+      ? buildingCentre(hub.tx, hub.ty, size)
+      : [this.boot.map.start_tx, this.boot.map.start_ty];
     if (tx !== this.centreX || ty !== this.centreY) {
       this.centreX = tx;
       this.centreY = ty;
@@ -302,7 +306,7 @@ export class Radar {
     const selected = view.selection.id;
     const size = (b: BuildingView): number => this.boot.catalog.buildings[b.kind]?.footprint ?? 1;
     const at = (b: BuildingView): readonly [number, number] | null =>
-      this.blip(cx, cy, rx, ry, b.tx + size(b) / 2, b.ty + size(b) / 2);
+      this.blip(cx, cy, rx, ry, ...buildingCentre(b.tx, b.ty, size(b)));
     const hub = view.snapshot.buildings.find((b) => b.kind === HUB);
     const home = hub ? at(hub) : null;
     // Colony footprint: faint amber spokes from the hub plus an amber cluster

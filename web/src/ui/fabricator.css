@@ -1,0 +1,27 @@
+/* Fabricator: dense engineering catalogue with dark asset display windows. */
+.oc-panel--fab .oc-panel__body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.oc-fab__tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; flex: 0 0 auto; padding: 5px; }
+.oc-fab__tab { display: flex; align-items: center; justify-content: center; gap: 5px; height: 23px; background: var(--oc-panel-2); border: 1px solid var(--oc-line-bright); color: var(--oc-ink-2); font-size: var(--oc-fs-md); font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
+.oc-fab__tab svg { width: 12px; height: 12px; }
+.oc-fab__tab:hover:not(.is-active) { background: var(--oc-panel-3); color: var(--oc-ink); }
+.oc-fab__tab.is-active { background: var(--oc-primary-fill); border-color: var(--oc-primary); color: var(--oc-void); }
+.oc-fab__cards { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(68px, 1fr); gap: 4px; padding: 0 5px 4px; }
+.oc-fab__empty { grid-column: 1 / -1; align-self: start; display: grid; place-items: center; min-height: 58px; border: 1px solid var(--oc-line); color: var(--oc-ink-3); font-size: var(--oc-fs-sm); letter-spacing: .12em; }
+.oc-card { display: grid; grid-template-rows: minmax(32px, 1fr) 14px 13px; gap: 2px; min-width: 0; padding: 3px 4px; background: var(--oc-panel-2); border: 1px solid var(--oc-line); color: var(--oc-ink); font-family: inherit; text-align: left; }
+.oc-card:hover { background: var(--oc-panel-3); border-color: var(--oc-line-bright); }
+.oc-card.is-locked { opacity: .55; }
+.oc-card.is-locked:hover { background: var(--oc-panel-2); border-color: var(--oc-line); }
+.oc-card.is-placing { border-color: var(--oc-primary); outline: 1px solid var(--oc-primary); outline-offset: -1px; }
+.oc-card__art { display: grid; place-items: center; min-height: 32px; background: var(--oc-void); border: 1px solid var(--oc-line-bright); color: var(--oc-signal-function); }
+.oc-card__art svg { width: 44px; height: 33px; }
+.oc-card.is-placing .oc-card__art { border-color: var(--oc-signal-primary); color: var(--oc-signal-primary); }
+.oc-card__name { overflow: hidden; font-size: var(--oc-fs-md); font-weight: 700; line-height: 14px; color: var(--oc-ink); white-space: nowrap; text-overflow: ellipsis; }
+.oc-card__cost { display: flex; align-items: baseline; gap: 3px; overflow: hidden; font-family: var(--oc-font-mono); font-size: 10px; line-height: 13px; }
+.oc-card__price { color: var(--oc-primary); }
+.oc-card__unit { font-family: var(--oc-font-sans); font-size: 10px; color: var(--oc-ink-3); }
+.oc-card__fuel { color: var(--oc-ink-2); }
+.oc-card.is-locked .oc-card__price { color: var(--oc-primary-dim); }
+.oc-fab__place { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; height: 20px; padding: 0 6px; background: var(--oc-panel-2); border-top: 1px solid var(--oc-line); font-size: 10px; letter-spacing: .06em; color: var(--oc-ink-2); }
+.oc-fab__place-tag { font-family: var(--oc-font-mono); font-size: 10px; letter-spacing: .16em; color: var(--oc-primary); }
+.oc-fab__place-hint { margin-left: auto; color: var(--oc-ink-3); }
+@media (max-height: 950px) { .oc-fab__cards { grid-auto-rows: 64px; } }

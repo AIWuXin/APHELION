@@ -128,7 +128,7 @@
   gap: 10px;
   height: var(--oc-subtitle-h);
   padding: 0 12px;
-  background: var(--oc-void);
+  background: var(--oc-panel);
   border-top: 1px solid var(--oc-line);
   pointer-events: none;
 }
@@ -136,7 +136,7 @@
 .oc-subtitle__who {
   padding: 2px 6px;
   background: var(--oc-status);
-  color: var(--oc-void);
+  color: var(--oc-ink-inverse);
   font-family: var(--oc-font-mono);
   font-size: var(--oc-fs-sm);
   font-weight: 700;
@@ -211,7 +211,7 @@
 .oc-alert__tag {
   padding: 2px 6px;
   background: var(--oc-danger);
-  color: var(--oc-void);
+  color: var(--oc-ink-inverse);
   font-family: var(--oc-font-mono);
   font-size: var(--oc-fs-sm);
   font-weight: 700;
@@ -267,8 +267,8 @@
 .oc-debug__title {
   margin-bottom: 2px;
   font-size: 10px;
-  letter-spacing: 0.22em;
-  color: var(--oc-primary);
+  letter-spacing: 0.18em;
+  color: var(--oc-signal-primary);
 }
 
 .oc-debug__grid {
@@ -278,7 +278,7 @@
 }
 
 .oc-debug__k {
-  color: var(--oc-ink-3);
+  color: var(--oc-ink-inverse);
   letter-spacing: 0.08em;
 }
 
@@ -286,9 +286,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--oc-ink);
+  color: var(--oc-ink-inverse);
 }
 
 .oc-debug__v.is-warn {
-  color: var(--oc-primary);
+  color: var(--oc-signal-primary);
 }

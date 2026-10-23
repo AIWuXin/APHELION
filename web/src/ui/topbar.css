@@ -14,7 +14,7 @@
   align-items: center;
   height: var(--oc-topbar-h);
   padding: 0 10px;
-  background: var(--oc-void);
+  background: var(--oc-panel);
   border-bottom: 1px solid var(--oc-line-bright);
   pointer-events: auto;
 }

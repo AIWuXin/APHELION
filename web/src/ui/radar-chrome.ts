@@ -12,7 +12,8 @@
  */
 
 import type { HudView } from './hud-api';
-import { FONT, PALETTE, rgba } from '../style/tokens';
+import { FONT, rgba } from '../style/tokens';
+import { RADAR_PALETTE as PALETTE } from './radar-palette';
 
 const TAU = Math.PI * 2;
 

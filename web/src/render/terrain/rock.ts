@@ -27,9 +27,9 @@ export interface RockTint {
 /** Stone tones pulled towards the tile's own material. */
 export function rockOf(t: TileInfo): RockTint {
   return {
-    light: mix(STONE.light, t.paint.hi, 0.28),
-    mid: mix(STONE.mid, t.paint.base, 0.3),
-    dark: mix(STONE.dark, t.paint.lo, 0.36),
+    light: mix(STONE.light, t.paint.hi, 0.18),
+    mid: mix(STONE.mid, t.paint.base, 0.24),
+    dark: mix(STONE.dark, t.paint.lo, 0.28),
     ink: t.paint.ink,
   };
 }

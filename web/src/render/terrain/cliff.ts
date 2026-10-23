@@ -51,21 +51,22 @@ function face(
   ctx.clip();
   const minX = Math.min(x0, x1) - 1;
   const maxX = Math.max(x0, x1) + 1;
-  const minY = Math.min(y0, y1);
   const maxY = Math.max(y0, y1) + height;
-  // Strata: every 3px, one shade darker than the face.
-  const strata = shade(stone, mult * 0.62);
-  for (let y = Math.round(minY) + 2; y < maxY; y += 3) {
-    ctx.fillStyle = strata;
-    ctx.fillRect(minX, y, maxX - minX, 1);
+  // Rock bedding follows the actual sloping edge, not a screen-space grid.
+  const strata = shade(stone, mult * 0.72);
+  ctx.fillStyle = strata;
+  for (let d = 3; d < height; d += 4) {
+    for (let i = 0; i <= 32; i += 1) {
+      const s = i / 32;
+      ctx.fillRect(Math.round(x0 + (x1 - x0) * s), Math.round(y0 + (y1 - y0) * s + d), 1, 1);
+    }
   }
-  // A couple of vertical cracks.
-  const cracks = 1 + (seed & 1);
-  for (let i = 0; i < cracks; i += 1) {
-    const t = 0.2 + rand2(seed, i, 0x11) * 0.6;
-    const x = Math.round(minX + (maxX - minX) * t);
-    ctx.fillStyle = shade(stone, mult * 0.48);
-    ctx.fillRect(x, minY, 1, maxY - minY);
+  if ((seed & 3) === 0) {
+    const s = 0.25 + rand2(seed, 1, 0x11) * 0.5;
+    const x = x0 + (x1 - x0) * s;
+    const y = y0 + (y1 - y0) * s;
+    ctx.fillStyle = shade(stone, mult * 0.58);
+    ctx.fillRect(Math.round(x), Math.round(y + 2), 1, height - 3);
   }
   // A 1px darker band at the very bottom keeps the lip grounded.
   ctx.fillStyle = rgba('#000000', 0.3);

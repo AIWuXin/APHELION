@@ -2,14 +2,12 @@
  * World palette: the material colours of the planet surface plus the hull
  * paints shared by every structure.
  *
- * Derived from the shared {@link PALETTE} tokens so the Canvas and the HUD can
- * never disagree about what "amber" means. Everything here is low saturation
- * and dark-biased: the only saturated pixels in the frame are energy (amber),
- * data (cyan), growth/health (green) and hostiles (red).
+ * Derived from the shared {@link PALETTE} tokens so the Canvas and the HUD share
+ * the same four signal roles. Mineral surfaces stay restrained; ceramic facilities
+ * and sparse engineering signals carry the strongest contrast.
  *
- * A material is more than a hue: each row also names an interleaved *companion*
- * material (so big generated regions break up into 1-4 tile hard-edged patches)
- * and the extra inks its texture needs.
+ * Companion materials form continuous 12/5-tile patches; natural seams are gone
+ * and texture phases live in world space rather than restarting at tile edges.
  */
 
 import { mix, PALETTE, SIGNAL, shade } from '../style/tokens';
@@ -23,7 +21,7 @@ export interface MaterialPaint {
   readonly hi: string;
   /** Darker variant used for hollows and troughs. */
   readonly lo: string;
-  /** 1px seam colour on the two lower tile edges. */
+  /** Expansion-joint colour; only roads and poured aprons use it. */
   readonly seam: string;
   /** Fine 1px grain speckle. */
   readonly grain: string;
@@ -42,100 +40,100 @@ export interface MaterialPaint {
 /** Terrain materials keyed by the generated content key. */
 export const TERRAIN_PAINT: Readonly<Record<TerrainKey, MaterialPaint>> = {
   basalt: {
-    base: '#343b3e',
-    hi: '#424a4e',
-    lo: '#232a2d',
-    seam: '#101619',
-    grain: '#525a5e',
-    ink: '#151b1e',
-    shine: '#616b6f',
+    base: '#454e50',
+    hi: '#596366',
+    lo: '#333d40',
+    seam: '#2b3436',
+    grain: '#717a78',
+    ink: '#283235',
+    shine: '#88948f',
     companion: 'regolith',
     companionMix: 240,
-    specks: 6,
+    specks: 2,
   },
   regolith: {
-    base: '#665c48',
-    hi: '#796d55',
-    lo: '#514736',
-    seam: '#292316',
-    grain: '#8c8064',
-    ink: '#3a3225',
-    shine: '#a09277',
+    base: '#7d715d',
+    hi: '#94856e',
+    lo: '#635947',
+    seam: '#514a3c',
+    grain: '#a79b83',
+    ink: '#504737',
+    shine: '#b6a98e',
     companion: 'basalt',
     companionMix: 190,
-    specks: 9,
+    specks: 3,
   },
   moss: {
-    base: '#5a6b3c',
-    hi: '#74884a',
-    lo: '#414f2c',
-    seam: '#232d17',
-    grain: '#9cb064',
-    ink: '#37441f',
-    shine: '#bccb7e',
+    base: '#64705a',
+    hi: '#78816b',
+    lo: '#4c5746',
+    seam: '#424e3b',
+    grain: '#909981',
+    ink: '#424c3a',
+    shine: '#a7af93',
     companion: 'regolith',
     companionMix: 250,
-    specks: 10,
+    specks: 3,
   },
   sand: {
-    base: '#877c58',
-    hi: '#9b8f68',
-    lo: '#6c6145',
-    seam: '#3c3523',
-    grain: '#b5a67a',
-    ink: '#554c31',
-    shine: '#cdbd90',
+    base: '#9b8c6b',
+    hi: '#b0a07e',
+    lo: '#807153',
+    seam: '#6c614a',
+    grain: '#c3b593',
+    ink: '#6c5e43',
+    shine: '#d1c4a2',
     companion: 'regolith',
     companionMix: 230,
-    specks: 5,
+    specks: 2,
   },
   brine: {
-    base: '#14343e',
-    hi: '#1e4c5a',
-    lo: '#0b2129',
-    seam: '#051216',
-    grain: '#3b7f8f',
-    ink: '#081a20',
-    shine: '#86d4de',
+    base: '#264852',
+    hi: '#3e6269',
+    lo: '#1a353f',
+    seam: '#142c34',
+    grain: '#628b8d',
+    ink: '#152f38',
+    shine: '#a2c6c7',
+    companion: null,
+    companionMix: 0,
+    specks: 0,
+  },
+  apron: {
+    base: '#656e6d',
+    hi: '#88918c',
+    lo: '#4d5857',
+    seam: '#434c4c',
+    grain: '#949d96',
+    ink: '#374443',
+    shine: '#b1b9ae',
     companion: null,
     companionMix: 0,
     specks: 2,
   },
-  apron: {
-    base: '#4a5052',
-    hi: '#5b6264',
-    lo: '#363c3e',
-    seam: '#1c2224',
-    grain: '#6d7578',
-    ink: '#262c2f',
-    shine: '#7d8688',
-    companion: null,
-    companionMix: 0,
-    specks: 4,
-  },
   road: {
-    base: '#262b2d',
-    hi: '#333a3c',
-    lo: '#1a1e20',
-    seam: '#0b0f10',
-    grain: '#495154',
-    ink: '#0f1416',
-    shine: '#7a7563',
+    base: '#353f3e',
+    hi: '#45514d',
+    lo: '#283230',
+    seam: '#202a29',
+    grain: '#65736a',
+    ink: '#202a28',
+    shine: '#9b9e84',
     companion: null,
     companionMix: 0,
-    specks: 5,
+    specks: 2,
   },
   crystal: {
-    base: '#4a3d62',
-    hi: '#63527f',
-    lo: '#352b47',
-    seam: '#1c1728',
-    grain: '#9c86c8',
-    ink: '#2a2138',
-    shine: '#c0aae4',
+    base: '#666d68',
+    hi: '#858c83',
+    lo: '#4b5552',
+    seam: '#404946',
+    grain: '#949b8e',
+    ink: '#36403d',
+    shine: '#bcc5b7',
     companion: null,
     companionMix: 0,
-    specks: 5,
+    specks: 1,
   },
   // -- the planet-scale biomes ------------------------------------------------
   // Both water rows are the same cold brine system as `brine`, pushed apart in
@@ -143,105 +141,99 @@ export const TERRAIN_PAINT: Readonly<Record<TerrainKey, MaterialPaint>> = {
   // must still read as *water* -- the first near-black take got mistaken for
   // empty void at map scale, so the values sit clearly above black now.
   shallow: {
-    base: '#20444c',
-    hi: '#2e606a',
-    lo: '#143038',
-    grain: '#58959b',
-    seam: '#0a1c21',
-    ink: '#0d2429',
-    shine: '#a8cfd4',
+    base: '#365b63',
+    hi: '#4e7980',
+    lo: '#27464e',
+    grain: '#7eaaab',
+    seam: '#203d45',
+    ink: '#203d45',
+    shine: '#b2d3cf',
     companion: null,
     companionMix: 0,
-    specks: 2,
+    specks: 0,
   },
   deep: {
-    base: '#0e2830',
-    hi: '#1a4552',
-    lo: '#081a20',
-    grain: '#2a5d68',
-    seam: '#041014',
-    ink: '#061418',
-    shine: '#5fa5b0',
+    base: '#203f49',
+    hi: '#355a65',
+    lo: '#142f39',
+    grain: '#527e86',
+    seam: '#142a32',
+    ink: '#122d35',
+    shine: '#81b4b8',
     companion: null,
     companionMix: 0,
-    specks: 1,
+    specks: 0,
   },
-  // Cold bands: white-grey snow and frozen ground, low saturation throughout so
-  // the seasonal belts still sit inside the mineral palette (D-03).
   snow: {
-    base: '#8f9ba2',
-    hi: '#a6b2b8',
-    lo: '#737f86',
-    seam: '#4b555b',
-    grain: '#c3ccd1',
-    ink: '#5c666c',
-    shine: '#dde4e8',
+    base: '#acb6b4',
+    hi: '#c3ccc6',
+    lo: '#909d9b',
+    seam: '#788987',
+    grain: '#d5ddd5',
+    ink: '#71817f',
+    shine: '#e3e9df',
     companion: 'tundra',
     companionMix: 190,
-    specks: 4,
+    specks: 1,
   },
   tundra: {
-    base: '#5c6259',
-    hi: '#6f7669',
-    lo: '#474d45',
-    seam: '#2a2f29',
-    grain: '#8b9285',
-    ink: '#31362f',
-    shine: '#a7aea0',
+    base: '#747c6e',
+    hi: '#8a9280',
+    lo: '#5c6559',
+    seam: '#535d50',
+    grain: '#a0a895',
+    ink: '#4b5648',
+    shine: '#b9c0ac',
     companion: 'moss',
     companionMix: 170,
-    specks: 7,
+    specks: 2,
   },
-  // Dry heat: warmer than the silica dunes, still dusty rather than orange.
   desert: {
-    base: '#8b7350',
-    hi: '#a08a63',
-    lo: '#6b573a',
-    seam: '#463825',
-    grain: '#bfa276',
-    ink: '#4f3f27',
-    shine: '#d3b78b',
+    base: '#a28b66',
+    hi: '#b69d78',
+    lo: '#866f50',
+    seam: '#716046',
+    grain: '#c9b48d',
+    ink: '#705d42',
+    shine: '#dcc7a0',
     companion: 'sand',
     companionMix: 220,
-    specks: 6,
+    specks: 2,
   },
-  // Mineral belt: the brightest rock on the planet, and the most broken.
   highland: {
-    base: '#69706c',
-    hi: '#7f877f',
-    lo: '#4f5652',
-    seam: '#2e3431',
-    grain: '#99a19a',
-    ink: '#2f3532',
-    shine: '#b9c0b8',
+    base: '#828c84',
+    hi: '#9da69a',
+    lo: '#626e66',
+    seam: '#535f57',
+    grain: '#b2b9aa',
+    ink: '#47564c',
+    shine: '#cad0bf',
     companion: 'basalt',
     companionMix: 200,
-    specks: 8,
+    specks: 3,
   },
-  // Wet cold band: tundra ground with the tufts packed in.
   'mossy-tundra': {
-    base: '#566040',
-    hi: '#6d7850',
-    lo: '#414a2e',
-    seam: '#262d1a',
-    grain: '#93a268',
-    ink: '#2f3720',
-    shine: '#b2c184',
+    base: '#67725b',
+    hi: '#7e896e',
+    lo: '#505d47',
+    seam: '#46533d',
+    grain: '#99a18a',
+    ink: '#424f39',
+    shine: '#b3bca1',
     companion: 'tundra',
     companionMix: 200,
-    specks: 11,
+    specks: 3,
   },
 };
 
 /** Deposit (mineral vein) paints: amber flecks, never a glow. */
 export const DEPOSIT = {
-  /** Bright fleck. */
-  fleck: '#e8c368',
-  /** Mid fleck. */
-  warm: '#c39a41',
-  /** Dark root of a vein. */
-  dark: '#7a622b',
-  /** Ground wash -- always below 10% alpha. */
+  /** Sparse exposed metal facet. */
+  fleck: '#dfc18c',
+  /** Copper-bearing vein. */
+  warm: '#b49462',
+  /** Dark mineral root. */
+  dark: '#514c3e',
   wash: PALETTE.primary,
 } as const;
 
@@ -269,28 +261,26 @@ export const COAL = {
 
 /** Light stone used for rocks, boulders and rubble. */
 export const STONE = {
-  light: '#8b9290',
-  mid: '#6b7271',
-  dark: '#464d4c',
-  ink: '#232928',
+  light: '#a0a79d',
+  mid: '#747f77',
+  dark: '#424e49',
+  ink: '#27332f',
 } as const;
 
-/** Tree paints: bark, two canopy tones and a sunlit tip. */
 export const FLORA = {
-  bark: '#3d3323',
-  barkHi: '#5a4b33',
-  leaf: '#4f6b35',
-  leafHi: '#688a42',
-  leafTip: '#8cab56',
-  dry: '#8a7b3f',
+  bark: '#464334',
+  barkHi: '#68634b',
+  leaf: '#58664a',
+  leafHi: '#738063',
+  leafTip: '#909b77',
+  dry: '#918367',
 } as const;
 
-/** Hostile crystal field ink (muted violet, never a fourth accent hue). */
 export const CRYSTAL_INK = {
-  deep: '#3b2f52',
-  mid: '#6b5a92',
-  light: '#9d88c9',
-  tip: '#c7b6e8',
+  deep: '#424e4c',
+  mid: '#8a958e',
+  light: '#c0c9bc',
+  tip: '#dde2d3',
 } as const;
 
 /** Colours for surface decoration, keyed by the generated content key. */

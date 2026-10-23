@@ -7,12 +7,13 @@
  * `ground-marks.ts`. Everything here is baked once into a chunk canvas.
  */
 
-import { box, contactShadow, prism } from '../primitives';
-import { COAL, DEPOSIT, FLORA, GLOW } from '../world-palette';
+import { box, contactShadow, fillPoly, line, prism } from '../primitives';
+import { COAL, CRYSTAL_INK, DEPOSIT, FLORA } from '../world-palette';
 import { mix } from '../../style/tokens';
 import { TERRAIN_KEYS } from '../../generated/content-keys';
 import { dot, isoPoint, rand01, rand2 } from './noise';
 import { rockOf } from './rock';
+import { oreFacets, oreTraceVisible } from './surface-rules';
 import type { TileInfo } from './tile';
 
 const SNOW = TERRAIN_KEYS.indexOf('snow');
@@ -97,22 +98,16 @@ function conifer(t: TileInfo, x: number, y: number, size: number): void {
   }
 }
 
-/** A violet outcrop: glow wash plus three prisms. */
+/** A smoky outcrop with a grounded stone root and three unequal facets. */
 function outcrop(t: TileInfo, x: number, y: number): void {
   const { ctx } = t;
-  ctx.save();
-  ctx.globalAlpha = 0.1;
-  ctx.beginPath();
-  ctx.ellipse(x, y + 1, 15, 7, 0, 0, Math.PI * 2);
-  ctx.fillStyle = '#6b5a92';
-  ctx.fill();
-  ctx.restore();
-  prism(ctx, x, y + 2, 4, 2.4, 14, -1, { base: '#63527f' });
-  prism(ctx, x - 5, y + 3, 3, 1.8, 9, -2, { base: '#3b2f52' });
-  prism(ctx, x + 5, y + 1, 2.5, 1.5, 7, 1, { base: '#6b5a92' });
-  ctx.fillStyle = '#c7b6e8';
-  ctx.fillRect(Math.round(x) - 1, Math.round(y) - 12, 1, 1);
-  ctx.fillRect(Math.round(x) - 6, Math.round(y) - 6, 1, 1);
+  seat(ctx, x, y + 2, 11, 5);
+  prism(ctx, x, y + 2, 4, 2.4, 14, -1, { base: CRYSTAL_INK.mid });
+  prism(ctx, x - 5, y + 3, 3, 1.8, 9, -2, { base: CRYSTAL_INK.deep });
+  prism(ctx, x + 5, y + 1, 2.5, 1.5, 7, 1, { base: CRYSTAL_INK.mid });
+  ctx.fillStyle = CRYSTAL_INK.light;
+  ctx.fillRect(Math.round(x) - 1, Math.round(y) - 12, 1, 3);
+  ctx.fillRect(Math.round(x) - 6, Math.round(y) - 6, 1, 2);
 }
 
 /** A broken stone pillar with a rubble collar. */
@@ -174,55 +169,32 @@ function crates(t: TileInfo, x: number, y: number, count: number): void {
   }
 }
 
-/** Rich mineral vein: amber tufts and flecks, never a glow. */
+/** Copper-bearing roots and veins; exposed facets grow only with richness. */
 function deposit(t: TileInfo, richness: number): void {
+  if (!oreTraceVisible(richness, rand01(t.tx, t.ty, 0x9f))) return;
   const { ctx, cx, cy, rx, ry } = t;
-  const grade = Math.min(1, richness / 120);
-  // A faint amber ground wash, well below 10% alpha.
-  ctx.save();
-  ctx.globalAlpha = 0.03 + 0.04 * grade;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy + 2, 18 + 8 * grade, 9 + 3 * grade, 0, 0, Math.PI * 2);
-  ctx.fillStyle = GLOW.primary;
-  ctx.fill();
-  ctx.globalAlpha = 0.02 + 0.02 * grade;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy + 2, 30 + 8 * grade, 14 + 4 * grade, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  // Vein line: tufts march along a broken iso diagonal. A faint speck of ore
-  // keeps a single tuft; only a real body gets the full row. The climate model
-  // sprinkles plenty of low-grade traces around, and a three-tuft cluster on
-  // every one of them carpets the ground in amber.
   const dir = rand01(t.tx, t.ty, 0xd1) > 0.5 ? 1 : -1;
-  const tufts = richness < 24 ? 1 : 2 + Math.min(6, Math.round(grade * 7));
-  for (let i = 0; i < tufts; i += 1) {
-    const s = 0.18 + rand2(t.tx, t.ty, 0xa1 + i * 3) * 0.64;
-    const b = 0.3 + rand2(t.tx, t.ty, 0xb1 + i * 3) * 0.4;
-    const p = isoPoint(cx, cy, rx, ry, s, b + dir * (s - 0.5) * 0.25);
-    const x = Math.round(p[0]);
-    const y = Math.round(p[1]);
-    // Amber tuft: two 1px strands over a dark root.
-    ctx.fillStyle = DEPOSIT.dark;
-    ctx.fillRect(x - 1, y + 1, 3, 1);
-    ctx.fillStyle = i % 3 === 0 ? DEPOSIT.fleck : DEPOSIT.warm;
-    ctx.fillRect(x, y - 2, 1, 3);
-    ctx.fillRect(x + 1, y - 1, 1, 2);
-    if (i % 2 === 0) {
-      ctx.fillStyle = DEPOSIT.fleck;
-      ctx.fillRect(x - 1, y - 1, 1, 2);
-    }
+  const root: [number, number][] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const a = 0.22 + i * 0.09;
+    const b = 0.52 + dir * (a - 0.5) * 0.35;
+    const p = isoPoint(cx, cy, rx, ry, a, b);
+    root.push([p[0], p[1] + 1]);
   }
-  // Loose flecks between the tufts.
-  for (let i = 0; i < 4; i += 1) {
-    const a = 0.2 + rand2(t.tx, t.ty, 0xc1 + i) * 0.6;
-    const b = 0.2 + rand2(t.tx, t.ty, 0xe1 + i) * 0.6;
-    const q = isoPoint(cx, cy, rx, ry, a, b);
-    dot(ctx, q[0], q[1], i % 3 === 0 ? DEPOSIT.dark : DEPOSIT.warm);
+  fillPoly(ctx, [...root, ...root.slice().reverse().map(([x, y]) => [x + 2, y + 3] as [number, number])], DEPOSIT.dark);
+  for (let i = 1; i < root.length; i += 1) {
+    const a = root[i - 1];
+    const b = root[i];
+    if (a && b) line(ctx, a, b, DEPOSIT.warm, 1);
   }
-  if (richness > 110) {
-    prism(ctx, cx + 6, cy + 4, 2.5, 1.5, 6, 1, { base: DEPOSIT.warm });
-    prism(ctx, cx - 7, cy + 1, 2, 1.2, 4, -1, { base: DEPOSIT.dark });
+  const { shards, height } = oreFacets(richness);
+  for (let i = 0; i < shards; i += 1) {
+    const point = root[1 + i];
+    if (!point) continue;
+    const [x, y] = point;
+    const h = Math.max(3, height - i * 2);
+    prism(ctx, x, y, 2.5, 1.4, h, i % 2 === 0 ? -1 : 1, { base: DEPOSIT.warm });
+    fillPoly(ctx, [[x - 1, y - h + 1], [x + 1, y - h], [x + 2, y - h + 3]], DEPOSIT.fleck);
   }
 }
 
@@ -245,61 +217,29 @@ function coalSeam(t: TileInfo, richness: number): void {
   const grade = Math.min(1, richness / 110);
   const dir = rand01(t.tx, t.ty, 0x6c) > 0.5 ? 1 : -1;
   const heavy = rand01(t.tx, t.ty, 0x9e) < 0.34 && richness >= 40;
-
-  if (heavy) {
-    // Soot: the patch under the seam is darker than the tile, never a hue wash.
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx + (rand2(t.tx, t.ty, 0x7a) - 0.5) * 8, cy + 2, 10 + 9 * grade, 4.5 + 4 * grade, 0, 0, Math.PI * 2);
-    ctx.globalAlpha = 0.06 + 0.2 * grade;
-    ctx.fillStyle = COAL.root;
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Body lumps cluster on the heavy tiles of a seam worth mining.
-  const lumps = heavy ? 1 + Math.min(3, Math.round(grade * 3.2)) : 0;
-  for (let i = 0; i < lumps; i += 1) {
-    const a = 0.2 + rand2(t.tx, t.ty, 0x1a + i * 7) * 0.58;
-    const b = 0.26 + rand2(t.tx, t.ty, 0x2a + i * 7) * 0.42;
-    const q = isoPoint(cx, cy, rx, ry, a, b + dir * (a - 0.5) * 0.22);
-    const s = (0.6 + rand2(t.tx, t.ty, 0x3a + i * 7) * 0.4) * (0.8 + grade * 0.4);
+  fillPoly(ctx, [
+    [cx - 16, cy + dir * 2], [cx - 2, cy - 4], [cx + 17, cy + 3],
+    [cx + 8, cy + 7], [cx - 8, cy + 5],
+  ], COAL.root);
+  line(ctx, [cx - 14, cy + 1], [cx + 14, cy + 4], COAL.dust, 1);
+  const layers = heavy ? 2 + Math.round(grade * 2) : 1;
+  for (let i = 0; i < layers; i += 1) {
+    const a = 0.24 + rand2(t.tx, t.ty, 0x1a + i * 7) * 0.48;
+    const b = 0.34 + rand2(t.tx, t.ty, 0x2a + i * 7) * 0.36;
+    const q = isoPoint(cx, cy, rx, ry, a, b);
     const x = Math.round(q[0]);
     const y = Math.round(q[1]);
-    // Matte on purpose: no rim, no seam, one cold 1px sheen laid by hand.
-    box(ctx, x, y, 2.8 * s, 1.6 * s, 2.2 * s, { base: COAL.lump, rim: false, seam: false });
-    if (grade > 0.5) {
-      ctx.fillStyle = COAL.sheen;
-      ctx.fillRect(x - Math.round(2.5 * s), y - Math.round(1.6 * s), 2, 1);
-    }
+    const width = heavy ? 5 + i : 3;
+    fillPoly(ctx, [
+      [x - width, y - 1], [x - 2, y - 3], [x + width, y], [x + 2, y + 2],
+    ], COAL.lump);
+    if (heavy && i === 0) line(ctx, [x - width + 1, y - 1], [x - 2, y - 3], COAL.sheen, 1);
   }
-
-  // Spilled grains: 1px, never a tuft. This is what every tile of a field gets.
-  for (let i = 0; i < 1 + Math.round(grade * 3); i += 1) {
-    const a = 0.16 + rand2(t.tx, t.ty, 0x4b + i) * 0.68;
-    const b = 0.18 + rand2(t.tx, t.ty, 0x5b + i) * 0.64;
-    const q = isoPoint(cx, cy, rx, ry, a, b);
-    dot(ctx, q[0], q[1], i % 3 === 0 ? COAL.lump : COAL.dust);
-  }
-  // A broken black seam line under the lumps: one coal layer, not pebbles.
-  if (heavy) {
-    for (let i = 0; i < 7; i += 1) {
-      const a = 0.16 + i * 0.11;
-      const b = 0.5 + dir * (a - 0.5) * 0.3 + (rand2(t.tx, t.ty, 0x7d + i) - 0.5) * 0.08;
-      const q = isoPoint(cx, cy, rx, ry, a, b);
-      ctx.fillStyle = COAL.root;
-      ctx.fillRect(Math.round(q[0]), Math.round(q[1]), 2, 1);
-    }
-  }
-
-  if (richness > 110) {
-    // A saturated seam carries one chunky outcrop so it reads at map scale.
-    // No prism: its white tip glint would read as ore metal.
-    box(ctx, cx + 7, cy + 2, 6.5, 3.4, 5, { base: COAL.lump, rim: false, seam: false });
-    ctx.fillStyle = COAL.sheen;
-    ctx.fillRect(cx + 3, cy - 1, 4, 1);
-    ctx.fillStyle = COAL.dust;
-    ctx.fillRect(cx + 12, cy + 6, 5, 1);
+  for (let i = 0; i < 1 + Math.round(grade * 2); i += 1) {
+    const q = isoPoint(cx, cy, rx, ry,
+      0.18 + rand2(t.tx, t.ty, 0x4b + i) * 0.64,
+      0.2 + rand2(t.tx, t.ty, 0x5b + i) * 0.6);
+    dot(ctx, q[0], q[1], COAL.dust);
   }
 }
 

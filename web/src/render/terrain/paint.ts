@@ -1,9 +1,9 @@
 /**
  * Per-tile painting for the chunk bake.
  *
- * The surface language (invariant #3): every tile is a hard-edged rhombus of one
- * material with a 1px darker seam on its two lower edges, a small per-tile value
- * jitter, and a sparse dithered fringe only where two materials meet. Neighbour
+ * The surface language (invariant #3): every tile is a hard-edged rhombus with
+ * correlated tone and a sparse dithered fringe only where two materials meet.
+ * Only manufactured roads and aprons retain a regular expansion-joint rim. Neighbour
  * probes go through the wrapping {@link ChunkStore}, so dither, foam and cliff
  * lips stay continuous across chunk borders and across the 10239/0 seam.
  *
@@ -17,6 +17,7 @@ import { paintCliff, paintShore } from './cliff';
 import { paintDecorTile } from './decor';
 import { paintGroundMark } from './ground-marks';
 import { clipDiamond, diamondPath, rand01, valueNoise } from './noise';
+import { hasTileSeam } from './surface-rules';
 import { TINT_STEPS, buildBlendTints, buildBlends, buildTextures, buildTints, paintOf } from './setup';
 import { paintCrystalClusters, SURFACE_INDEX } from './materials-b';
 import type { MaterialTexture, TileInfo } from './tile';
@@ -94,7 +95,7 @@ export class TilePainter {
     this.dither(ctx, info, tile.material);
     ctx.restore();
 
-    this.seams(ctx, info, info.paint);
+    if (hasTileSeam(tile.material)) this.seams(ctx, info, info.paint);
   }
 
   /** Cliff lips and foam after every top in this chunk is down. */

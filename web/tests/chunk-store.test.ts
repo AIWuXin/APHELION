@@ -17,13 +17,14 @@ import type { ChunkSource } from '../../web/src/render/terrain/chunk-store';
 import { ChunkStore } from '../../web/src/render/terrain/chunk-store';
 
 const EDGE = 32;
-const CENTRE = 1;
+// This neighbourhood still crosses a companion boundary with the 12/5 noise.
+const CENTRE = 2;
 const ROAD = 6;
 
 const MAP: MapView = {
   seed: 1,
-  width: EDGE * 3,
-  height: EDGE * 3,
+  width: EDGE * 4,
+  height: EDGE * 4,
   chunk_size: EDGE,
   start_tx: EDGE,
   start_ty: EDGE,

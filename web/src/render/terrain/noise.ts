@@ -46,21 +46,16 @@ export function valueNoise(x: number, y: number, scale: number, seed: number): n
 }
 
 /**
- * High-frequency companion-material mask.
- *
- * The generated map is deliberately low-frequency (11-tile lattice), which
- * reads as a few giant colour blobs. This mask carves 2-4 tile hard-edged
- * patches out of those blobs so the surface reads as a constructed patchwork.
- * `mix` is the recipe's companionMix (0..1000). The bake passes the raw mask
- * through a majority filter, so single-tile confetti never survives.
+ * Continuous companion patches on 12/5-tile lattices, with only a narrow
+ * per-tile edge perturbation. The bake's majority filter removes isolated
+ * pixels; `mix` is the material recipe's companionMix (0..1000).
  */
 export function companionMask(tx: number, ty: number, mix: number): boolean {
   if (mix <= 0) return false;
-  const coarse = valueNoise(tx, ty, 4, 0x51e7);
-  const fine = valueNoise(tx, ty, 2, 0x9e37);
-  const edge = (rand01(tx, ty, 0x77a1) - 0.5) * 90;
-  const v = coarse * 0.78 + fine * 0.22 + edge;
-  // Calibrated so mix 240 ≈ 25% coverage of 2-4 tile patches.
+  const v =
+    valueNoise(tx, ty, 12, 0x51e7) * 0.76 +
+    valueNoise(tx, ty, 5, 0x9e37) * 0.24 +
+    (rand01(tx, ty, 0x77a1) - 0.5) * 48;
   return v > 700 - mix * 0.5;
 }
 

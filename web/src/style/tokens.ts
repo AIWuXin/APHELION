@@ -15,42 +15,52 @@
 
 /** Palette. All values are `#rrggbb`; alpha variants are built with {@link rgba}. */
 export const PALETTE = {
-  /** Deepest black, behind everything. */
-  void: '#05090a',
-  /** Panel body. */
-  panel: '#0a1113',
-  /** Raised chip inside a panel. */
-  panel2: '#0f191c',
+  /** Deep display background and dark text on bright active fills. */
+  void: '#10171b',
+  /** Warm engineering-paper panel body. */
+  panel: '#e6e3da',
+  /** Secondary rows and controls on the engineering panel. */
+  panel2: '#d8d9d1',
   /** Hover / pressed chip. */
-  panel3: '#16252a',
+  panel3: '#c3cbc6',
   /** 1px separator inside panels. */
-  line: '#233338',
+  line: '#b0b5af',
   /** 1px panel border, cold steel. */
-  lineBright: '#4e6066',
+  lineBright: '#758381',
   /** Primary text. */
-  ink: '#c9d6d6',
+  ink: '#1b282c',
   /** Secondary text. */
-  ink2: '#8a9a9c',
-  /** Tertiary text, wide-tracked English subtitles. */
-  ink3: '#5d6d70',
-  /** Primary emphasis: amber. Numbers, active tabs, the key verb. */
-  primary: '#f0c050',
-  /** Solid amber fill for a selected control (text goes near-black). */
-  primaryFill: '#e8bc4e',
-  /** Amber at rest / disabled. */
-  primaryDim: '#8c6f27',
-  /** Function: cyan. Progress bars, data links, connections. */
-  function: '#88d8e8',
+  ink2: '#4e6062',
+  /** Tertiary text, tracked English subtitles. */
+  ink3: '#58676a',
+  /** Light text on dark displays and status fills. */
+  inkInverse: '#f4f2ea',
+  /** International orange text on light surfaces. */
+  primary: '#9c3f22',
+  /** Bright orange fill for a selected control (text goes dark). */
+  primaryFill: '#e9784e',
+  /** Orange at rest / disabled. */
+  primaryDim: '#86523f',
+  /** Function: deep cyan. Progress bars, data links, connections. */
+  function: '#176c78',
   /** Cyan at rest. */
-  functionDim: '#3c7684',
-  /** Status: green. Radar sweep, nominal state, health. */
-  status: '#90c0a0',
+  functionDim: '#639099',
+  /** Status: green. Nominal state and health. */
+  status: '#3f684d',
   /** Green at rest. */
-  statusDim: '#4a6d58',
+  statusDim: '#779080',
   /** Danger: red. Alerts and hostiles only -- never decoration. */
-  danger: '#c24a3a',
+  danger: '#a33832',
   /** Danger at rest. */
-  dangerDim: '#6e2a22',
+  dangerDim: '#b7746b',
+} as const;
+
+/** Bright variants of the same four roles for dark displays and world signals. */
+export const SIGNAL = {
+  primary: '#ffb26b',
+  function: '#80d6dd',
+  status: '#9bc6a4',
+  danger: '#ef776b',
 } as const;
 
 /** Named colour roles, so draw code never invents a semantic. */

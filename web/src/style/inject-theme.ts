@@ -6,7 +6,7 @@
  * and the Canvas always describe the same world.
  */
 
-import { FONT, METRICS, PALETTE, TYPE } from './tokens';
+import { FONT, METRICS, PALETTE, SIGNAL, TYPE } from './tokens';
 
 const VARS: ReadonlyArray<readonly [string, string]> = [
   ['void', PALETTE.void],
@@ -18,6 +18,7 @@ const VARS: ReadonlyArray<readonly [string, string]> = [
   ['ink', PALETTE.ink],
   ['ink-2', PALETTE.ink2],
   ['ink-3', PALETTE.ink3],
+  ['ink-inverse', PALETTE.inkInverse],
   ['primary', PALETTE.primary],
   ['primary-fill', PALETTE.primaryFill],
   ['primary-dim', PALETTE.primaryDim],
@@ -27,6 +28,10 @@ const VARS: ReadonlyArray<readonly [string, string]> = [
   ['status-dim', PALETTE.statusDim],
   ['danger', PALETTE.danger],
   ['danger-dim', PALETTE.dangerDim],
+  ['signal-primary', SIGNAL.primary],
+  ['signal-function', SIGNAL.function],
+  ['signal-status', SIGNAL.status],
+  ['signal-danger', SIGNAL.danger],
   ['topbar-h', `${METRICS.topbarH}px`],
   ['rail-w', `${METRICS.railW}px`],
   ['subtitle-h', `${METRICS.subtitleH}px`],

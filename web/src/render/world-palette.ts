@@ -12,7 +12,7 @@
  * and the extra inks its texture needs.
  */
 
-import { mix, PALETTE, shade } from '../style/tokens';
+import { mix, PALETTE, SIGNAL, shade } from '../style/tokens';
 import type { DecorKey, TerrainKey } from '../generated/content-keys';
 
 /** A terrain material's full paint recipe. */
@@ -304,16 +304,16 @@ export const DECOR_PAINT: Readonly<Record<DecorKey, string>> = {
   crate: '#7a6a48',
 };
 
-/** Accent glows used by buildings, always one of the three allowed roles. */
+/** Bright signal inks used on the dark world, always within the four roles. */
 export const GLOW = {
   /** Primary emphasis: reactor cores, pad lights, engine bells. */
-  primary: PALETTE.primary,
+  primary: SIGNAL.primary,
   /** Function: data links, dome interiors, solar glints. */
-  function: PALETTE.function,
+  function: SIGNAL.function,
   /** Status: hydroponics, lab, healthy machinery. */
-  status: PALETTE.status,
+  status: SIGNAL.status,
   /** Danger: hostile hulls, alarms. */
-  danger: PALETTE.danger,
+  danger: SIGNAL.danger,
 } as const;
 
 /** Hull colours shared by all player structures. */

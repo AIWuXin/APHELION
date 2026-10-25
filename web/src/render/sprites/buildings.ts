@@ -2,15 +2,13 @@ import type { BuildingKey } from '../../generated/content-keys';
 import type { BuildingArt, BuildingPainter, SpriteBox } from '../sprite-contract';
 import { DEFENCE } from './buildings/defence';
 import { HQ_ART } from './buildings/hq';
-import { INDUSTRY } from './buildings/industry';
-import { ORBITAL } from './buildings/orbital';
+import { COAL_MINE_ART, COAL_PLANT_ART } from './buildings/industry';
+import { DOCK_ART, HANGAR_ART, LAUNCH_ART, RADAR_ART } from './buildings/orbital';
 import { REFINERY_ART } from './buildings/refinery';
 import { FUEL_ART, LAB_ART, SOLAR_ART } from './buildings/structures';
 import { plinth } from './detail';
 
-const RAW: Readonly<Record<string, BuildingPainter>> = {
-  ...INDUSTRY, ...ORBITAL, ...DEFENCE,
-};
+const RAW: Readonly<Record<string, BuildingPainter>> = { ...DEFENCE };
 const FALLBACK: BuildingPainter = (env, cx, cy) => plinth(env.ctx, cx, cy, 1);
 
 function bounds(size: number): SpriteBox {
@@ -29,15 +27,15 @@ export const BUILDING_ART = {
   refinery: REFINERY_ART,
   'fuel-synth': FUEL_ART,
   'research-lab': LAB_ART,
-  'launch-pad': legacy('launch-pad', 2),
-  'freight-dock': legacy('freight-dock', 2),
+  'launch-pad': LAUNCH_ART,
+  'freight-dock': DOCK_ART,
   'relay-mast': legacy('relay-mast', 1),
   'rail-turret': legacy('rail-turret', 1),
   'flak-battery': legacy('flak-battery', 1),
   bulwark: legacy('bulwark', 1),
-  hangar: legacy('hangar', 2),
-  'radar-array': legacy('radar-array', 2),
+  hangar: HANGAR_ART,
+  'radar-array': RADAR_ART,
   'repair-bay': legacy('repair-bay', 1),
-  'coal-mine': legacy('coal-mine', 2),
-  'coal-plant': legacy('coal-plant', 2),
+  'coal-mine': COAL_MINE_ART,
+  'coal-plant': COAL_PLANT_ART,
 } as const satisfies Readonly<Record<BuildingKey, BuildingArt>>;

@@ -60,7 +60,10 @@ describe('building sprite cache', () => {
     }
   });
 
-  it.each(['command-hub', 'refinery', 'solar-array', 'fuel-synth', 'research-lab'] as const)(
+  it.each([
+    'command-hub', 'refinery', 'solar-array', 'fuel-synth', 'research-lab',
+    'coal-mine', 'coal-plant', 'launch-pad', 'freight-dock', 'hangar', 'radar-array',
+  ] as const)(
     'separates the static body of %s from its motion and bounds',
     (key) => {
       const art = BUILDING_ART[key];

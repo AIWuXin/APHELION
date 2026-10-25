@@ -174,7 +174,7 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 |---|---|---|---|
 | 1 | 2:1 等距正交、体块由基本体拼成 | `render/iso.ts` 固定 64×32；`render/primitives.ts` 只提供 box / cylinder / dome / prism | ✅ 无透视、无旋转；平移与 0.75×–2.5× 缩放只动取景框，不改变投影（N-06） |
 | 2 | 统一左上光；三面 1.0/0.86/0.68 + 1px 亮棱暗棱；短柔阴影偏右下 | `tokens.ts LIGHT`；`primitives.ts` 的 `box/cylinder/dome/prism/contactShadow` | ✅ 单一只 `LIGHT` 常量，无第二套明暗；阴影恒偏右下（左右归属的裁决见 decisions C-01） |
-| 3 | 自然地连续：世界坐标岩层/风纹/水波，12/5 格 companion 斑块；人工网格只属于道路与地坪 | `render/terrain/surface-rules.ts`、`terrain/surface-paint.ts`、`terrain/noise.ts` | ✅ 15 种材质无逐格暗缝，跨 chunk 与环面相位一致；矿脉/煤矿保留材质差异 |
+| 3 | 自然地连续：世界坐标岩层/风纹/水波，10/5 格 companion 斑块；人工网格只属于道路与地坪 | `render/terrain/surface-rules.ts`、`terrain/surface-paint.ts`、`terrain/noise.ts` | ✅ 15 种材质无逐格暗缝，跨 chunk 与环面相位一致；矿脉/煤矿保留材质差异 |
 | 4 | 暖白工程纸 HUD + 深色数据视窗 + 1px 描边；禁玻璃/模糊/泛光/大圆角 | `ui/hud.css`、`ui/panels.css`、`ui/radar-palette.ts` | ✅ 浅底文字与深底 SIGNAL 分离；无 `backdrop-filter`、无 `filter: blur`、无 `box-shadow` 光晕；`border-radius: 0` |
 | 5 | 低饱和矿质材质；主强调/功能/状态/危险四色纪律，危险色仅警报与敌方 | `tokens.ts PALETTE + SIGNAL` 唯一色源 | ✅ 浅底用 PALETTE，深视窗与世界灯带用同色相 SIGNAL；陶瓷白只用于实体 |
 | 6 | 中文为主体（700），英文宽字距小号；数字等宽；三档字号；1px 分隔线 | `ui/hud.css` + `ui/*.ts` | ✅ 10/12/14 + 26 显示位；`.oc-num` 系列 `tabular-nums`；分隔线全为 1px |

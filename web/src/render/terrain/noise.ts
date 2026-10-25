@@ -7,6 +7,7 @@
  */
 
 import type { Pt } from '../primitives';
+import { wrapSpan } from '../torus';
 
 /** 32-bit hash of two integers. */
 export function hash32(x: number, y: number): number {
@@ -46,16 +47,18 @@ export function valueNoise(x: number, y: number, scale: number, seed: number): n
 }
 
 /**
- * Continuous companion patches on 12/5-tile lattices, with only a narrow
- * per-tile edge perturbation. The bake's majority filter removes isolated
- * pixels; `mix` is the material recipe's companionMix (0..1000).
+ * Continuous companion patches on 10/5-tile lattices. Both scales divide the
+ * 10240-tile world span, so value-noise cells meet exactly across the torus.
+ * The bake's majority filter removes isolated pixels; `mix` is companionMix.
  */
 export function companionMask(tx: number, ty: number, mix: number): boolean {
   if (mix <= 0) return false;
+  const x = wrapSpan(tx, 10240);
+  const y = wrapSpan(ty, 10240);
   const v =
-    valueNoise(tx, ty, 12, 0x51e7) * 0.76 +
-    valueNoise(tx, ty, 5, 0x9e37) * 0.24 +
-    (rand01(tx, ty, 0x77a1) - 0.5) * 48;
+    valueNoise(x, y, 10, 0x51e7) * 0.76 +
+    valueNoise(x, y, 5, 0x9e37) * 0.24 +
+    (rand01(x, y, 0x77a1) - 0.5) * 48;
   return v > 700 - mix * 0.5;
 }
 

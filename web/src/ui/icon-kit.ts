@@ -18,7 +18,7 @@ export function poly(points: readonly (readonly [number, number])[], fill = 'non
 export function isoBox(x: number, y: number, w: number, h: number, z: number): string {
   const a = y - z;
   const b = a + w / 2;
-  const base = y + w / 2;
+  const base = a + w;
   return [
     poly([[x, a], [x + w, b], [x, a + w], [x - w, b]], CERAMIC),
     poly([[x - w, b], [x, a + w], [x, base + h], [x - w, b + h]], 'currentColor'),

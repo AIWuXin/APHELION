@@ -305,9 +305,6 @@
   .oc-rail > .oc-panel--fab {
     min-height: 160px;
   }
-  .oc-fab__cards {
-    grid-auto-rows: 54px;
-  }
   .oc-tech {
     padding: 2px 7px;
   }

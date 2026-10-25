@@ -6,7 +6,7 @@
  * the same four signal roles. Mineral surfaces stay restrained; ceramic facilities
  * and sparse engineering signals carry the strongest contrast.
  *
- * Companion materials form continuous 12/5-tile patches; natural seams are gone
+ * Companion materials form continuous 10/5-tile patches; natural seams are gone
  * and texture phases live in world space rather than restarting at tile edges.
  */
 

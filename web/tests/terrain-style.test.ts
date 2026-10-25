@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { companionMask, rand01, valueNoise } from '../../web/src/render/terrain/noise';
 import { hasTileSeam } from '../../web/src/render/terrain/surface-rules';
+import { wrapSpan } from '../../web/src/render/torus';
 
 function referenceMask(tx: number, ty: number, mix: number): boolean {
+  const x = wrapSpan(tx, 10240);
+  const y = wrapSpan(ty, 10240);
   const v =
-    valueNoise(tx, ty, 12, 0x51e7) * 0.76 +
-    valueNoise(tx, ty, 5, 0x9e37) * 0.24 +
-    (rand01(tx, ty, 0x77a1) - 0.5) * 48;
+    valueNoise(x, y, 10, 0x51e7) * 0.76 +
+    valueNoise(x, y, 5, 0x9e37) * 0.24 +
+    (rand01(x, y, 0x77a1) - 0.5) * 48;
   return mix > 0 && v > 700 - mix * 0.5;
 }
 
@@ -29,6 +32,17 @@ describe('continuous terrain rules', () => {
     for (const [tx, ty] of points) {
       for (const mix of [1, 170, 240, 500]) {
         expect(companionMask(tx, ty, mix)).toBe(referenceMask(tx, ty, mix));
+      }
+    }
+  });
+
+  it('keeps companion patches continuous across the 10240-tile torus', () => {
+    const points: readonly (readonly [number, number])[] = [
+      [0, 0], [1, 7], [-1, -33], [10239, 10239], [17, -10239], [-10237, 10247],
+    ];
+    for (const [tx, ty] of points) {
+      for (const mix of [170, 240]) {
+        expect(companionMask(tx, ty, mix)).toBe(companionMask(tx + 10240, ty - 10240, mix));
       }
     }
   });

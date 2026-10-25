@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BUILDING_KEYS, UNIT_KEYS } from '../../web/src/generated/content-keys';
+import { isoBox } from '../../web/src/ui/icon-kit';
 import { BUILDING_ICONS, UNIT_ICONS } from '../../web/src/ui/icons';
 import { buildingCentre } from '../../web/src/ui/radar-layout';
 
@@ -29,5 +30,12 @@ describe('aerospace command HUD assets', () => {
     expect(buildingCentre(10, 20, 3)).toEqual([11.5, 21.5]);
     expect(buildingCentre(10, 20, 2)).toEqual([11, 21]);
     expect(buildingCentre(-1, 0, 1)).toEqual([-0.5, 0.5]);
+  });
+
+  it('drops both isometric box side faces by exactly their height', () => {
+    const art = isoBox(24, 12, 13, 3, 3);
+    expect(art).toContain('M24 9L37 15.5L24 22L11 15.5Z');
+    expect(art).toContain('M11 15.5L24 22L24 25L11 18.5Z');
+    expect(art).toContain('M24 22L37 15.5L37 18.5L24 25Z');
   });
 });

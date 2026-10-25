@@ -3,7 +3,7 @@ import { line, polygon } from '../../primitives';
 import { rgba } from '../../../style/tokens';
 import { GLOW } from '../../world-palette';
 import { beacon, strip } from '../detail';
-import { padTop } from './faces';
+import { LAB_ART_SCALE, padTop } from './faces';
 
 export const solarMotion: BuildingPainter = (env, cx, cy) => {
   const { ctx, time } = env;
@@ -40,7 +40,11 @@ export const fuelMotion: BuildingPainter = (env, cx, cy) => {
 
 export const labMotion: BuildingPainter = (env, cx, cy) => {
   const { ctx, time } = env;
-  const y = padTop(cy, 2);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(LAB_ART_SCALE, LAB_ART_SCALE);
+  ctx.translate(-cx, -cy);
+  const y = padTop(cy, 1);
   const phase = time / 1400;
   ctx.strokeStyle = rgba(GLOW.function, 0.48);
   ctx.lineWidth = 1;
@@ -51,4 +55,5 @@ export const labMotion: BuildingPainter = (env, cx, cy) => {
   strip(ctx, cx - 30, y - 15, 11, 2, rgba(GLOW.status, pulse));
   strip(ctx, cx + 18, y - 20, 8, 2, rgba(GLOW.function, pulse));
   beacon(ctx, cx + 38, y - 46, time, GLOW.status);
+  ctx.restore();
 };

@@ -12,6 +12,9 @@
 import { line } from '../../primitives';
 import { padPlate, strip } from '../detail';
 
+/** Keep the laboratory silhouette inside its actual 1x1 content footprint. */
+export const LAB_ART_SCALE = 0.66;
+
 /** Top of the poured pad for a footprint size (matches `detail.ts#plinth`). */
 export function padTop(cy: number, size: number): number {
   return padPlate(cy, size).top - 2;

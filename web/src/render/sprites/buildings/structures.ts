@@ -3,7 +3,7 @@ import { box, cylinder, dome, line, prism } from '../../primitives';
 import { rgba } from '../../../style/tokens';
 import { GLOW, HULL } from '../../world-palette';
 import { cable, plateSeams, plinth, strip } from '../detail';
-import { padTop } from './faces';
+import { LAB_ART_SCALE, padTop } from './faces';
 import { fuelMotion, labMotion, solarMotion } from './structures-motion';
 
 const solarBody: BuildingBodyPainter = (env, cx, cy) => {
@@ -72,8 +72,12 @@ const fuelBody: BuildingBodyPainter = (env, cx, cy) => {
 
 const labBody: BuildingBodyPainter = (env, cx, cy) => {
   const { ctx } = env;
-  const y = padTop(cy, 2);
-  plinth(ctx, cx, cy, 2);
+  plinth(ctx, cx, cy, 1);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(LAB_ART_SCALE, LAB_ART_SCALE);
+  ctx.translate(-cx, -cy);
+  const y = padTop(cy, 1);
   box(ctx, cx - 8, y - 17, 29, 14.5, 16, { base: HULL.plate });
   plateSeams(ctx, cx - 8, y - 17, 29, 14.5, rgba(HULL.recess, 0.2), 3);
   dome(ctx, cx - 11, y - 23, 20, 10, 16, { base: HULL.plate });
@@ -89,6 +93,7 @@ const labBody: BuildingBodyPainter = (env, cx, cy) => {
   prism(ctx, cx + 39, y - 42, 4, 2, 4, 1, { base: HULL.plate });
   strip(ctx, cx - 30, y - 15, 11, 2, HULL.recess);
   strip(ctx, cx - 4, y - 6, 17, 2, HULL.accent);
+  ctx.restore();
 };
 
 export const SOLAR_ART = {
@@ -101,5 +106,5 @@ export const FUEL_ART = {
 } as const satisfies BuildingArt;
 export const LAB_ART = {
   body: labBody, motion: labMotion,
-  bounds: { left: -76, top: -86, right: 76, bottom: 54 }, healthY: -78,
+  bounds: { left: -48, top: -62, right: 48, bottom: 38 }, healthY: -52,
 } as const satisfies BuildingArt;

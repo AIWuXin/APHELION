@@ -15,7 +15,8 @@
 .oc-row__sub { grid-area: sub; overflow: hidden; font-family: var(--oc-font-mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--oc-ink-3); white-space: nowrap; text-overflow: ellipsis; }
 .oc-row__value { grid-area: value; font-family: var(--oc-font-mono); font-size: var(--oc-fs-md); font-weight: 700; color: var(--oc-primary); white-space: nowrap; }
 .oc-row .oc-bar { grid-area: bar; }
-.oc-row.is-alert .oc-row__value, .oc-row.is-alert .oc-bar > i { color: var(--oc-danger); background: var(--oc-danger); }
+.oc-row.is-alert .oc-row__value { color: var(--oc-danger); }
+.oc-row.is-alert .oc-bar > i { background: var(--oc-danger); }
 .oc-row.is-missing .oc-row__value { font-size: 10px; font-weight: 400; letter-spacing: .1em; color: var(--oc-ink-3); }
 .oc-row.is-muted .oc-row__value { color: var(--oc-ink-3); }
 

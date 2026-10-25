@@ -1,9 +1,9 @@
 /**
  * Shared building detail helpers.
  *
- * Every structure is built from the same vocabulary: a dark plinth, a poured
- * pad, panel seams, rivet rows, vents, hazard paint, cable runs and hard
- * emissive strips. This module owns that vocabulary plus the two state
+ * Every structure is built from the same vocabulary: a thin concrete raft,
+ * panel seams, rivet rows, vents, safety paint, cable runs and hard signal
+ * strips. This module owns that vocabulary plus the two state
  * overlays that every building shares -- the construction scaffold (state 0)
  * and the damaged scorch (flags bit 4).
  */
@@ -178,14 +178,11 @@ export function padPlate(
   return {
     rx: size * HW * 0.98 * 0.95,
     ry: size * HH * 0.98 * 0.95,
-    top: cy - (size >= 2 ? 8 : 6),
+    top: cy - (size >= 2 ? 5 : 3),
   };
 }
 
-/**
- * The concrete plinth every structure sits on: dark skirt, poured pad with a
- * lit lip, corner hazard nubs and expansion joints.
- */
+/** A thin concrete raft over a recessed graphite skirt and short contact shadow. */
 export function plinth(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -195,28 +192,18 @@ export function plinth(
 ): void {
   const rx = size * HW * 0.98;
   const ry = size * HH * 0.98;
-  // A 2x2 structure and the 3x3 command hub share the heavy skirt; a 1x1 pad
-  // keeps the lighter one so small props still read as furniture.
-  const heavy = size >= 2;
   const pad = padPlate(cy, size);
-  contactShadow(ctx, cx, cy, rx * 1.05, ry * 1.12, 0.46);
-  // Recessed skirt.
-  box(ctx, cx, cy - 1, rx, ry, heavy ? 7 : 5, { base: HULL.recess, rim: false, seam: false });
-  // Poured pad, inset by a 1px dark reveal.
-  const padY = pad.top;
-  box(ctx, cx, padY, pad.rx, pad.ry, 2, { base: tint, rim: true, seam: true });
-  // Expansion joints + corner hazard nubs.
-  plateSeams(ctx, cx, padY, pad.rx, pad.ry, HULL.dark, 3);
-  const t = 0.06;
-  const corners: readonly [number, number][] = [
-    [t, t],
-    [1 - t, t],
-    [t, 1 - t],
-    [1 - t, 1 - t],
-  ];
-  for (const [a, b] of corners) {
-    const p = iso(cx, padY, pad.rx, pad.ry, a, b);
-    ctx.fillStyle = rgba(GLOW.primary, 0.5);
+  contactShadow(ctx, cx, cy, rx * 1.03, ry * 1.04, 0.32);
+  box(ctx, cx, cy - 2, rx * 0.98, ry * 0.98, size >= 2 ? 3 : 2, {
+    base: HULL.recess,
+    rim: false,
+    seam: false,
+  });
+  box(ctx, cx, pad.top, pad.rx, pad.ry, 2, { base: tint, rim: true, seam: true });
+  plateSeams(ctx, cx, pad.top, pad.rx, pad.ry, rgba(HULL.recess, 0.24), 3);
+  for (const [a, b] of [[0.06, 0.06], [0.94, 0.06], [0.06, 0.94], [0.94, 0.94]] as const) {
+    const p = iso(cx, pad.top, pad.rx, pad.ry, a, b);
+    ctx.fillStyle = HULL.accent;
     ctx.fillRect(Math.round(p[0]) - 1, Math.round(p[1]), 3, 1);
   }
 }

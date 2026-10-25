@@ -14,6 +14,17 @@ export function buildingSpriteKey(key: BuildingKey, scale: number): string {
   return `${key}@${scale}`;
 }
 
+export function spriteAnchor(cx: number, cy: number): { readonly x: number; readonly y: number } {
+  return { x: Math.round(cx) + 0, y: Math.round(cy) + 0 };
+}
+
+export function spriteTransform(
+  bounds: SpriteBox,
+  scale: number,
+): readonly [number, number, number, number, number, number] {
+  return [scale, 0, 0, scale, -bounds.left * scale, -bounds.top * scale];
+}
+
 /** Rasterises static bodies on demand; dynamic state never enters a cache key. */
 export class BuildingSpriteCache {
   private readonly cache: PixelLru<HTMLCanvasElement>;
@@ -34,9 +45,10 @@ export class BuildingSpriteCache {
   ): boolean {
     const canvas = this.body(key, def, body, bounds, scale);
     if (!canvas) return false;
+    const anchor = spriteAnchor(cx, cy);
     ctx.save();
     ctx.imageSmoothingEnabled = true;
-    ctx.translate(Math.round(cx), Math.round(cy));
+    ctx.translate(anchor.x, anchor.y);
     ctx.drawImage(canvas, bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
     ctx.restore();
     return true;
@@ -61,7 +73,7 @@ export class BuildingSpriteCache {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     ctx.save();
-    ctx.setTransform(scale, 0, 0, scale, bounds.left * scale, bounds.top * scale);
+    ctx.setTransform(...spriteTransform(bounds, scale));
     body({ ctx, tile: 64 }, 0, 0, def);
     ctx.restore();
     this.cache.put(cacheKey, canvas, canvas.width * canvas.height);

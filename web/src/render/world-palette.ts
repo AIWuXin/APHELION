@@ -306,25 +306,25 @@ export const GLOW = {
   danger: SIGNAL.danger,
 } as const;
 
-/** Hull colours shared by all player structures. */
+/** Ceramic armour, graphite structure and engineering paint shared by player assets. */
 export const HULL = {
-  /** Light structural plate (roofs, tanks). */
-  plate: '#8a9391',
-  /** Mid plate, the default box colour. */
-  mid: '#697270',
-  /** Dark machinery. */
-  dark: '#414a4a',
-  /** Near-black recess. */
-  recess: '#151a1c',
-  /** Painted amber accent strips. */
-  accent: '#b08a3a',
-  /** Concrete pad. */
-  pad: '#4c5153',
-  /** Solar cell face. */
-  cell: '#1b333d',
-  /** Thin rib highlight on tanks. */
-  rib: '#b7c0bd',
-  /** Glass / window band. */
+  /** Ceramic-white primary armour. */
+  plate: '#d9ddd3',
+  /** Secondary ceramic and insulated panels. */
+  mid: '#b3beb8',
+  /** Graphite structural members. */
+  dark: '#536168',
+  /** Deep machinery and window recesses. */
+  recess: '#1b272d',
+  /** International-orange safety paint, not an emissive. */
+  accent: PALETTE.primaryFill,
+  /** Pale poured-concrete equipment pads. */
+  pad: '#8b9691',
+  /** Blue-black photovoltaic glass. */
+  cell: '#213f4c',
+  /** Ceramic edge highlight. */
+  rib: '#f1f0e4',
+  /** Recessed instrument glass. */
   glass: PALETTE.function,
 } as const;
 

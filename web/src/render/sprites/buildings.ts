@@ -1,14 +1,15 @@
 import type { BuildingKey } from '../../generated/content-keys';
 import type { BuildingArt, BuildingPainter, SpriteBox } from '../sprite-contract';
 import { DEFENCE } from './buildings/defence';
+import { HQ_ART } from './buildings/hq';
 import { INDUSTRY } from './buildings/industry';
-import { LANDMARKS } from './buildings/landmarks';
 import { ORBITAL } from './buildings/orbital';
-import { STRUCTURES } from './buildings/structures';
+import { REFINERY_ART } from './buildings/refinery';
+import { FUEL_ART, LAB_ART, SOLAR_ART } from './buildings/structures';
 import { plinth } from './detail';
 
 const RAW: Readonly<Record<string, BuildingPainter>> = {
-  ...STRUCTURES, ...LANDMARKS, ...INDUSTRY, ...ORBITAL, ...DEFENCE,
+  ...INDUSTRY, ...ORBITAL, ...DEFENCE,
 };
 const FALLBACK: BuildingPainter = (env, cx, cy) => plinth(env.ctx, cx, cy, 1);
 
@@ -23,11 +24,11 @@ function legacy(key: BuildingKey, size: number) {
 }
 
 export const BUILDING_ART = {
-  'command-hub': legacy('command-hub', 3),
-  'solar-array': legacy('solar-array', 2),
-  refinery: legacy('refinery', 2),
-  'fuel-synth': legacy('fuel-synth', 2),
-  'research-lab': legacy('research-lab', 2),
+  'command-hub': HQ_ART,
+  'solar-array': SOLAR_ART,
+  refinery: REFINERY_ART,
+  'fuel-synth': FUEL_ART,
+  'research-lab': LAB_ART,
   'launch-pad': legacy('launch-pad', 2),
   'freight-dock': legacy('freight-dock', 2),
   'relay-mast': legacy('relay-mast', 1),

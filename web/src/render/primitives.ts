@@ -14,7 +14,7 @@
  *  - 1px lines are snapped with {@link crisp} so they never blur.
  */
 
-import { LIGHT, rgba, shade } from '../style/tokens';
+import { LIGHT, mix, rgba, shade } from '../style/tokens';
 
 /** Round a coordinate so a 1px stroke lands on a pixel centre. */
 export function crisp(v: number): number {
@@ -143,11 +143,10 @@ export function box(
   const sb = drop(s);
   const eb = drop(e);
 
-  // Left face (towards screen-left) then right face.
+  // Warm overhead light, a neutral lit face and a cool ambient shadow face.
   fillPoly(ctx, [w, s, sb, wb], shade(opts.base, ramp.left));
-  fillPoly(ctx, [s, e, eb, sb], shade(opts.base, ramp.right));
-  // Top face last so its edges sit on top of the walls.
-  fillPoly(ctx, [n, e, s, w], shade(opts.base, ramp.top));
+  fillPoly(ctx, [s, e, eb, sb], mix(shade(opts.base, ramp.right), '#425e6c', 0.12));
+  fillPoly(ctx, [n, e, s, w], mix(shade(opts.base, ramp.top), '#fff2dc', 0.04));
 
   if (opts.rim !== false) {
     const hi = rgba('#ffffff', LIGHT.rimLight);
@@ -189,7 +188,7 @@ export function cylinder(
   ctx.lineTo(right, cy);
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI, false);
   ctx.closePath();
-  ctx.fillStyle = shade(opts.base, LIGHT.right);
+  ctx.fillStyle = mix(shade(opts.base, LIGHT.right), '#425e6c', 0.12);
   ctx.fill();
 
   // Four vertical bands: 0.68 | 0.86 | 1.00 | 0.72 across the body.
@@ -213,7 +212,7 @@ export function cylinder(
     ctx.lineTo(x1, bottom - ry * Math.sqrt(Math.max(0, 1 - t1 * t1)));
     ctx.closePath();
     ctx.clip();
-    ctx.fillStyle = shade(opts.base, m);
+    ctx.fillStyle = m < 0.8 ? mix(shade(opts.base, m), '#425e6c', 0.08) : shade(opts.base, m);
     ctx.fillRect(x0, cy - ry - 1, x1 - x0 + 1, height + ry * 2 + 2);
     ctx.restore();
   }
@@ -221,7 +220,7 @@ export function cylinder(
   // Top cap.
   ctx.beginPath();
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fillStyle = shade(opts.base, 1.06);
+  ctx.fillStyle = mix(shade(opts.base, 1.06), '#fff2dc', 0.04);
   ctx.fill();
   if (opts.rim !== false) {
     ctx.strokeStyle = rgba('#ffffff', LIGHT.rimLight * 1.4);
@@ -265,7 +264,7 @@ export function dome(
     ctx.beginPath();
     ctx.ellipse(cx, cy, rx * (w - 0.06), ry * (w - 0.06), 0, Math.PI, 0, false);
     ctx.lineWidth = Math.max(2, height * 0.22);
-    ctx.strokeStyle = shade(opts.base, m);
+    ctx.strokeStyle = m < 0.8 ? mix(shade(opts.base, m), '#425e6c', 0.12) : mix(shade(opts.base, m), '#fff2dc', 0.04);
     ctx.stroke();
     ctx.restore();
   }
@@ -296,7 +295,7 @@ export function prism(
   const [n, e, s, w] = diamond(cx, cy - ry, rx, ry);
   // Two visible facets.
   fillPoly(ctx, [tip, w, n], shade(opts.base, LIGHT.left));
-  fillPoly(ctx, [tip, n, e], shade(opts.base, LIGHT.right));
+  fillPoly(ctx, [tip, n, e], mix(shade(opts.base, LIGHT.right), '#425e6c', 0.12));
   fillPoly(ctx, [tip, w, s, e], shade(opts.base, 0.5));
   line(ctx, tip, n, rgba('#ffffff', LIGHT.rimLight * 2));
   line(ctx, n, e, rgba('#ffffff', LIGHT.rimLight));

@@ -52,7 +52,6 @@ describe('building sprite cache', () => {
     expect(Object.keys(BUILDING_ART)).toHaveLength(16);
     for (const key of BUILDING_KEYS) {
       const art = BUILDING_ART[key];
-      expect(art.body).toBeNull();
       expect(art.motion).toBeTypeOf('function');
       expect(art.bounds.left).toBeLessThan(art.bounds.right);
       expect(art.bounds.top).toBeLessThan(art.bounds.bottom);
@@ -60,4 +59,18 @@ describe('building sprite cache', () => {
       expect(art.healthY).toBeGreaterThanOrEqual(art.bounds.top);
     }
   });
+
+  it.each(['command-hub', 'refinery', 'solar-array', 'fuel-synth', 'research-lab'] as const)(
+    'separates the static body of %s from its motion and bounds',
+    (key) => {
+      const art = BUILDING_ART[key];
+      expect(art.body).toBeTypeOf('function');
+      expect(art.motion).toBeTypeOf('function');
+      expect(art.bounds.left).toBeLessThanOrEqual(0);
+      expect(art.bounds.right).toBeGreaterThanOrEqual(0);
+      expect(art.bounds.top).toBeLessThan(0);
+      expect(art.bounds.bottom).toBeGreaterThanOrEqual(0);
+      expect(Object.values(art.bounds).every((value) => Number.isFinite(value) && Math.abs(value) < 512)).toBe(true);
+    },
+  );
 });

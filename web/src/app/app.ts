@@ -37,6 +37,8 @@ declare global {
     __ocTerrain?: () => string;
     /** Effective terrain material at a wrapped tile (`?debug=1` only). */
     __ocProbe?: (tx: number, ty: number) => number;
+    /** Latest simulation snapshot for visual acceptance (`?debug=1` only). */
+    __ocSnapshot?: () => Snapshot | null;
     /** Diagnostic dump of one streamed chunk (`?debug=1` only). */
     __ocChunk?: (cx: number, cy: number) => unknown;
   }
@@ -115,6 +117,7 @@ export class App {
           window.__ocFocus = (tx, ty) => this.rig.focusTile(tx, ty);
           window.__ocTerrain = () => this.terrainLine();
           window.__ocProbe = (tx, ty) => this.renderer.tileMaterial(tx, ty);
+          window.__ocSnapshot = () => this.store.current;
           window.__ocChunk = (cx, cy) => this.renderer.debugChunk(cx, cy);
         }
         // Bake the opening view behind the loading veil: the first frame the

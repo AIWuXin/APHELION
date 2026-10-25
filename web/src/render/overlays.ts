@@ -9,7 +9,7 @@
 
 import type { BuildingView } from '../generated/BuildingView';
 import { BUILDING_KEYS } from '../generated/content-keys';
-import { PALETTE, TILE, rgba } from '../style/tokens';
+import { TILE, rgba } from '../style/tokens';
 import type { Frame } from './frame';
 import { toScreen } from './iso';
 import type { Camera } from './iso';
@@ -141,7 +141,7 @@ export function drawAirShadows(ctx: CanvasRenderingContext2D, frame: Frame): voi
   for (const s of frame.snapshot.orbital.ships) {
     const p = toScreen(cam, s.x / 1024, s.y / 1024, 0);
     // Orbital contacts keep the ring marker: the shadow is far below them.
-    ctx.strokeStyle = rgba(PALETTE.function, 0.16);
+    ctx.strokeStyle = rgba(GLOW.function, 0.16);
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.ellipse(p.x, p.y + 2, 15, 6, 0, 0, Math.PI * 2);
@@ -197,7 +197,7 @@ export function drawInteraction(ctx: CanvasRenderingContext2D, frame: Frame): vo
   // Hover tile.
   if (interaction.hover) {
     const p = toScreen(cam, interaction.hover.tx + 0.5, interaction.hover.ty + 0.5, 0);
-    brackets(ctx, p.x, p.y, HW, HH, rgba(PALETTE.primary, 0.4), 6);
+    brackets(ctx, p.x, p.y, HW, HH, rgba(GLOW.primary, 0.4), 6);
   }
 
   // Placement ghost: footprint diamond, per-tile grid, legality tint.
@@ -206,7 +206,7 @@ export function drawInteraction(ctx: CanvasRenderingContext2D, frame: Frame): vo
     const hover = interaction.hover;
     if (def && hover) {
       const size = def.footprint;
-      const tint = interaction.placementOk ? PALETTE.status : PALETTE.danger;
+      const tint = interaction.placementOk ? GLOW.status : GLOW.danger;
       const p = toScreen(cam, hover.tx + size / 2, hover.ty + size / 2, 0);
       ctx.fillStyle = rgba(tint, 0.07);
       ctx.beginPath();
@@ -249,16 +249,16 @@ export function drawInteraction(ctx: CanvasRenderingContext2D, frame: Frame): vo
     if (b) {
       const size = frame.boot.catalog.buildings[b.kind]?.footprint ?? 1;
       const p = toScreen(cam, b.tx + size / 2, b.ty + size / 2, 0);
-      brackets(ctx, p.x, p.y, size * HW, size * HH, rgba(PALETTE.primary, pulse), 10);
-      ctx.fillStyle = rgba(PALETTE.primary, 0.8);
+      brackets(ctx, p.x, p.y, size * HW, size * HH, rgba(GLOW.primary, pulse), 10);
+      ctx.fillStyle = rgba(GLOW.primary, 0.8);
       ctx.fillRect(Math.round(p.x), Math.round(p.y) - 1, 1, 1);
     } else {
       const u = frame.snapshot.units.find((x) => x.id === interaction.selected);
       if (u) {
         const p = toScreen(cam, u.x / 1024, u.y / 1024, 0);
-        brackets(ctx, p.x, p.y, 15, 7, rgba(PALETTE.primary, pulse), 5);
+        brackets(ctx, p.x, p.y, 15, 7, rgba(GLOW.primary, pulse), 5);
         const size = 3;
-        ctx.strokeStyle = rgba(PALETTE.primary, 0.5);
+        ctx.strokeStyle = rgba(GLOW.primary, 0.5);
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y - size);
@@ -275,7 +275,7 @@ export function drawInteraction(ctx: CanvasRenderingContext2D, frame: Frame): vo
     const p = toScreen(cam, ping.tx + 0.5, ping.ty + 0.5, 0);
     const t = Math.min(1, ping.age / 1400);
     const r = 10 + t * 30;
-    ctx.strokeStyle = rgba(PALETTE.danger, (1 - t) * 0.8);
+    ctx.strokeStyle = rgba(GLOW.danger, (1 - t) * 0.8);
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(p.x, p.y - r * 0.6);

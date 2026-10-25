@@ -5,7 +5,8 @@
  * the lit body on top: that 1px dark outline is what makes a 20px craft pop
  * against a loud patchwork terrain. Silhouettes are deliberately distinct
  * (squat walker, tall siege frame, wide lifting body, delta wing, boxy shuttle,
- * long hostile hull, tiny drone) and each carries exactly one saturated light.
+ * long hostile hull, tiny drone). Ceramic/cyan player markers and dark-red
+ * hostile markers identify faction without filling the screen with glow.
  */
 
 import type { UnitKey } from '../../generated/content-keys';
@@ -28,7 +29,7 @@ function outlinedBox(
   base: string,
   rim = true,
 ): void {
-  box(ctx, cx, cy + 0.5, rx + 1.3, ry + 0.9, height + 1.5, {
+  box(ctx, cx, cy + 0.5, rx + 0.65, ry + 0.45, height + 0.7, {
     base: INK,
     rim: false,
     seam: false,
@@ -76,12 +77,9 @@ function outlinedPoly(
   ctx.stroke();
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.strokeStyle = rgba('#ffffff', 0.12);
-  ctx.lineWidth = 1;
-  ctx.stroke();
 }
 
-/** Faction paints: hostile keys use the ENEMY palette, player hulls are steel. */
+/** Faction paints: hostile keys use ENEMY red, player hulls use ceramic white. */
 function faction(view: CraftView): { plate: string; dark: string; glow: string } {
   const hostile =
     view.kind === 0 || view.kind === 1 || view.kind === 2 || view.kind === 5 || view.owner === 1;
@@ -125,7 +123,7 @@ const paintSiege: UnitPainter = (env, cx, cy, view) => {
   outlinedBox(ctx, cx, cy - 12, 10, 5, 14, f.plate);
   outlinedBox(ctx, cx, cy - 24, 7, 3.5, 6, darken(f.plate, 0.9), false);
   // Cannon: thick outlined barrel aimed down-range.
-  outlinedLine(ctx, cx + 4, cy - 22, cx + 22, cy - 28, 3, '#3a3f40');
+  outlinedLine(ctx, cx + 4, cy - 22, cx + 22, cy - 28, 3, f.dark);
   ctx.fillStyle = f.dark;
   ctx.fillRect(Math.round(cx + 21), Math.round(cy - 30), 4, 4);
   const pulse = 0.5 + 0.5 * Math.sin(time / 420);
@@ -179,6 +177,9 @@ const paintInterceptor: UnitPainter = (env, cx, cy, view) => {
     HULL.plate,
   );
   outlinedBox(ctx, cx, cy - 9 + bob, 3, 2, 5, HULL.plate, false);
+  ctx.fillStyle = rgba(GLOW.function, 0.85);
+  ctx.fillRect(Math.round(cx - 5), Math.round(cy - 4 + bob), 2, 1);
+  ctx.fillRect(Math.round(cx + 4), Math.round(cy - 4 + bob), 2, 1);
   // Amber engine: flicker + a 2px exhaust trail.
   const flick = 0.45 + Math.sin(time / 70) * 0.2 + (view.state === 1 ? 0.2 : 0);
   ctx.fillStyle = rgba(GLOW.primary, Math.min(1, flick));
@@ -263,6 +264,3 @@ export const SHIP_PAINTERS: Readonly<Record<UnitKey, ShipPainter>> = {
   warship: paintWarship,
   'survey-drone': paintDrone,
 };
-
-/** A punched-up dying state shared by the renderer (kept for asset work). */
-export const _unitInk = INK;

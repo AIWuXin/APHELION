@@ -48,24 +48,9 @@ describe('building sprite cache', () => {
     expect(buildingSpriteKey('solar-array', 2.5)).not.toBe(buildingSpriteKey('solar-array', 2));
   });
 
-  it('provides bounded legacy art for all sixteen buildings', () => {
+  it('provides complete bounded art for all sixteen buildings', () => {
     expect(Object.keys(BUILDING_ART)).toHaveLength(16);
     for (const key of BUILDING_KEYS) {
-      const art = BUILDING_ART[key];
-      expect(art.motion).toBeTypeOf('function');
-      expect(art.bounds.left).toBeLessThan(art.bounds.right);
-      expect(art.bounds.top).toBeLessThan(art.bounds.bottom);
-      expect(art.healthY).toBeLessThan(0);
-      expect(art.healthY).toBeGreaterThanOrEqual(art.bounds.top);
-    }
-  });
-
-  it.each([
-    'command-hub', 'refinery', 'solar-array', 'fuel-synth', 'research-lab',
-    'coal-mine', 'coal-plant', 'launch-pad', 'freight-dock', 'hangar', 'radar-array',
-  ] as const)(
-    'separates the static body of %s from its motion and bounds',
-    (key) => {
       const art = BUILDING_ART[key];
       expect(art.body).toBeTypeOf('function');
       expect(art.motion).toBeTypeOf('function');
@@ -73,7 +58,9 @@ describe('building sprite cache', () => {
       expect(art.bounds.right).toBeGreaterThanOrEqual(0);
       expect(art.bounds.top).toBeLessThan(0);
       expect(art.bounds.bottom).toBeGreaterThanOrEqual(0);
+      expect(art.healthY).toBeLessThan(0);
+      expect(art.healthY).toBeGreaterThanOrEqual(art.bounds.top);
       expect(Object.values(art.bounds).every((value) => Number.isFinite(value) && Math.abs(value) < 512)).toBe(true);
-    },
-  );
+    }
+  });
 });

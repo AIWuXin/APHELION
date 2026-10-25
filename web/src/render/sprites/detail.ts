@@ -8,9 +8,6 @@
  * and the damaged scorch (flags bit 4).
  */
 
-import type { BuildingDef } from '../../generated/BuildingDef';
-import type { BuildingView } from '../../generated/BuildingView';
-import type { SpriteEnv, BuildingPainter } from '../sprite-contract';
 import { box, contactShadow, fillPoly, line, type Pt } from '../primitives';
 import { PALETTE, rgba } from '../../style/tokens';
 import { GLOW, HULL } from '../world-palette';
@@ -361,22 +358,6 @@ export function paintDamage(
     ctx.fillStyle = i === 0 ? GLOW.primary : GLOW.danger;
     ctx.fillRect(Math.round(ex), Math.round(ey), 1, 1);
   }
-}
-
-/**
- * Wrap a painter with the two state overlays every structure shares: the build
- * site scaffold and the damaged scorch. Keeps the 14 painters free of state
- * plumbing and guarantees consistent feedback.
- */
-export function withStates(painter: BuildingPainter): BuildingPainter {
-  return (env: SpriteEnv, cx: number, cy: number, view: BuildingView, def: BuildingDef) => {
-    if (view.state === 0) {
-      paintScaffold(env.ctx, cx, cy, def.footprint, view.progress, env.time);
-      return;
-    }
-    painter(env, cx, cy, view, def);
-    if ((view.flags & 4) !== 0) paintDamage(env.ctx, cx, cy, def.footprint, env.time);
-  };
 }
 
 /** Re-exported palette used by the painter modules. */

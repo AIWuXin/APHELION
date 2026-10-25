@@ -6,7 +6,7 @@ import { BUILDING_ART } from './buildings';
 import { paintDamage, paintScaffold } from './detail';
 import { BuildingSpriteCache, spriteAnchor } from './sprite-cache';
 
-/** Draw order shared by legacy and migrated art: state, body, motion, damage. */
+/** Shared draw order: construction, cached body, motion, then damage. */
 export class BuildingRenderer {
   private readonly sprites = new BuildingSpriteCache();
 
@@ -25,12 +25,8 @@ export class BuildingRenderer {
       return;
     }
     const art = BUILDING_ART[key];
-    if (art.body) {
-      this.sprites.draw(env.ctx, key, def, art.body, art.bounds, scale, anchor.x, anchor.y);
-    } else {
-      art.motion?.(env, anchor.x, anchor.y, view, def);
-    }
-    if (art.body && art.motion) art.motion(env, anchor.x, anchor.y, view, def);
+    this.sprites.draw(env.ctx, key, def, art.body, art.bounds, scale, anchor.x, anchor.y);
+    art.motion?.(env, anchor.x, anchor.y, view, def);
     if ((view.flags & 4) !== 0) paintDamage(env.ctx, anchor.x, anchor.y, def.footprint, env.time);
   }
 

@@ -38,7 +38,7 @@ import { rasterScale } from './sprites/sprite-cache';
 import { SHIP_PAINTERS, UNIT_PAINTERS } from './sprites/units';
 import { TerrainLayer } from './terrain-layer';
 import type { TerrainStats } from './terrain-layer';
-import { GLOW } from './world-palette';
+import { GLOW, HULL } from './world-palette';
 
 /** One thing to draw, with its sort key. */
 interface Drawable {
@@ -284,19 +284,28 @@ export class Renderer {
       const t = e.life > 0 ? Math.min(1, e.age / e.life) : 1;
       const fade = 1 - t;
       if (e.kind === 2) {
-        // Explosion: expanding hard-edged diamonds.
-        const r = 6 + t * 22;
-        ctx.globalAlpha = fade * 0.9;
-        for (let i = 0; i < 3; i += 1) {
-          const rr = r * (1 - i * 0.22);
+        const r = 4 + t * 18;
+        ctx.globalAlpha = fade;
+        if (t < 0.45) {
+          ctx.fillStyle = rgba(GLOW.primary, 0.8 * (1 - t / 0.45));
           ctx.beginPath();
-          ctx.moveTo(p.x, p.y - rr);
-          ctx.lineTo(p.x + rr, p.y);
-          ctx.lineTo(p.x, p.y + rr);
-          ctx.lineTo(p.x - rr, p.y);
+          ctx.moveTo(p.x, p.y - r);
+          ctx.lineTo(p.x + r, p.y);
+          ctx.lineTo(p.x, p.y + r);
+          ctx.lineTo(p.x - r, p.y);
           ctx.closePath();
-          ctx.fillStyle = i === 0 ? rgba(GLOW.primary, 0.5) : rgba('#ffffff', 0.18);
           ctx.fill();
+        }
+        for (let i = 0; i < 4; i += 1) {
+          const angle = i * Math.PI / 2 + 0.35;
+          const distance = 3 + t * 17;
+          const x = p.x + Math.cos(angle) * distance;
+          const y = p.y + Math.sin(angle) * distance * 0.65;
+          line(ctx, [x, y], [x + Math.cos(angle) * 3, y + Math.sin(angle) * 2], rgba(GLOW.primary, 0.7));
+        }
+        for (const side of [-1, 1]) {
+          ctx.fillStyle = rgba(HULL.mid, 0.25 * fade);
+          ctx.fillRect(Math.round(p.x + side * (3 + t * 8)), Math.round(p.y - 4 - t * 10), 3, 3);
         }
         ctx.globalAlpha = 1;
       } else if (e.kind === 1) {

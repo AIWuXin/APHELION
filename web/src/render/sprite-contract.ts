@@ -55,8 +55,7 @@ export type BuildingBodyPainter = (
 ) => void;
 
 export interface BuildingArt {
-  /** Null only while a legacy painter is being migrated to a static body. */
-  readonly body: BuildingBodyPainter | null;
+  readonly body: BuildingBodyPainter;
   readonly motion: BuildingPainter | null;
   readonly bounds: SpriteBox;
   readonly healthY: number;

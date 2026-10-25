@@ -58,6 +58,15 @@ WasmTransport 自己跑 30Hz 定时器：
 渲染 60fps、仿真 30Hz 解耦：仿真按固定步长推进（`TICK_MS = 33`），渲染只读最新快照。
 速度档位是仿真内部的倍率（1/2/4 个 tick 每次 step），因此提速不改变确定性语义。
 
+**两层画布缓存**：`TerrainLayer` 继续按视口流送、分帧烘焙，预算 24 Mpx；`BuildingRenderer`
+每帧只计算一次 `rasterScale(dpr, zoom)`，16 类已建成建筑的 `body` 进入独立的
+`BuildingSpriteCache`（8 Mpx LRU，约 32 MiB），`motion` 与施工/受损仍逐帧绘制。
+缓存键只有建筑 key 与量化后的分辨率档；`spriteAnchor` 让静态 blit 和动态部件落在同一
+逻辑像素。小型单位不增加第二套缓存。
+
+`?debug=1` 暴露 `__ocCamera`、`__ocFocus`、`__ocTerrain`、`__ocProbe`、`__ocChunk` 与
+`__ocSnapshot()`，供截图和真实输入验收使用；这些探针不改变 Command/Snapshot 协议。
+
 ## 3. 怎么加一个建筑（两处，编译器强制）
 
 1. **Rust 数据表** — `crates/content/src/buildings.rs`：在 `BUILDINGS` **末尾**追加一行，
@@ -69,11 +78,15 @@ WasmTransport 自己跑 30Hz 定时器：
                  category: CAT_BUILD, hp: 320, tech: NO_TECH, range: 0, capacity: 0, tier: 1 },
    ```
 
-2. **TS 绘制注册** — `web/src/render/sprites/buildings.ts`：在 `BUILDING_PAINTERS` 里加键。
+2. **TS 绘制注册** — `web/src/render/sprites/buildings.ts`：在 `BUILDING_ART` 里注册完整
+   `{ body, motion, bounds, healthY }`。`body` 只画固定底座和主体，`motion` 画灯带、炮管、
+   斗轮、吊车、烟气等动态部件；施工与受损由 `BuildingRenderer` 统一处理，不能写入静态缓存。
+   `bounds` 与 `healthY` 使用同一个地面锚点，footprint 仍以内容表为准。
 
    因为 `BUILDING_KEYS` 由 `cargo test -p oc-content` 生成
    （`web/src/generated/content-keys.ts`），`BuildingKey` 联合类型会立刻包含新键；
-   `Record<BuildingKey, BuildingPainter>` 缺一项就是**编译错误**，不是运行时的空白格。
+   `Record<BuildingKey, BuildingArt>` 缺一项就是**编译错误**，不是运行时的空白格。
+   较大的设施按 `buildings/<group>.ts` 与 `<group>-motion.ts` 拆分，保持单文件不超过 400 行。
 
 然后 `node scripts/ci.mjs --web`（或 `npx tsc --noEmit`）确认。
 

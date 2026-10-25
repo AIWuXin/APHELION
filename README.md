@@ -22,6 +22,7 @@
 - **确定性内核**：同 seed + 同命令序列 → 同状态哈希（CI 双跑比对，3000 tick）
 - **二进制协议**：postcard 经线性内存传输，零 JSON；类型由 `ts-rs` 从 Rust 生成，跨语言固件测试兜底
 - **零运行时依赖**：前端无框架、无位图、无 emoji、无图标字体；世界 Canvas，HUD 是 DOM
+- **现代航天工程图谱**：浅色工程 HUD + 深色数据视窗，陶瓷白/石墨设施与国际橙标识；连续地表、等距 SVG 图标，全部程序化生成
 - **一条命令出 exe**：`pnpm run package` → 桌面版 0.87 MiB（原生窗口）+ 0.49 MiB 浏览器兜底版，
   两者都内嵌全部前端资源
 
@@ -84,7 +85,7 @@ URL 参数：
 |---|---|
 | `?debug=1` | 调试层：fps / step 耗时 / tick / 哈希 / 实体数 / 快照字节 |
 | `?seed=123456` | 固定世界（同 seed + 同命令序列 → 同状态哈希） |
-| `?demo=1` | **演示模式**：自动走完开局（建 14 座建筑、发射两次、开通两条航线、研究材料学），全部通过正常 Command 通道 |
+| `?demo=1` | **演示模式**：按当前 era 建设可用设施、尝试发射与开通航线、研究材料学；越级步骤跳过，全部通过正常 Command 通道 |
 | `?rush=1` | 配合 `?demo=1`，保持 4× 速度跑，便于在 1 分钟内看到第一波敌舰 |
 
 截图取证（每个阶段都必须可运行、可截图）：
@@ -107,7 +108,7 @@ node scripts/screenshot.mjs --width 1280 --height 720 --demo     # 窄屏不破�
 |---|---|
 | 左键 | 选中建筑 / 单位；处于建造模式时放置 |
 | 右键 / `Esc` | 取消建造模式或取消选中 |
-| 拖拽 / `WASD` / 方向键 | 平移镜头（边界按投影菱形钳制，四角都能拖到） |
+| 拖拽 / `WASD` / 方向键 | 在 10240×10240 环面上平移镜头（无边界钳制，0/10239 连续相接） |
 | 滚轮 / `+` `-` | 缩放 0.75×–2.5×（纯正交放大，不改变投影；默认 100%） |
 | `0` | 回到殖民地总览（缩放复位到 100%） |
 | 空格 | 暂停 / 继续 |
@@ -153,10 +154,10 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 ## 加一个建筑（两处，编译器强制）
 
 1. `crates/content/src/buildings.rs` — 末尾追加一行 `BuildingRow`，`B_COUNT` 加一。
-2. `web/src/render/sprites/buildings.ts` — 在 `BUILDING_PAINTERS` 里加一个绘制函数。
+2. `web/src/render/sprites/buildings.ts` — 在 `BUILDING_ART` 注册 `{ body, motion, bounds, healthY }`；固定主体与动态部件分离。
 
 `cargo test -p oc-content` 重新生成 `web/src/generated/content-keys.ts`，
-`BuildingKey` 联合类型立刻包含新键；`Record<BuildingKey, BuildingPainter>` 缺项即 **tsc 报错**。
+`BuildingKey` 联合类型立刻包含新键；`Record<BuildingKey, BuildingArt>` 缺项即 **tsc 报错**。
 不需要改任何系统逻辑。
 
 ## 换 Transport（接服务端）
@@ -173,12 +174,12 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 |---|---|---|---|
 | 1 | 2:1 等距正交、体块由基本体拼成 | `render/iso.ts` 固定 64×32；`render/primitives.ts` 只提供 box / cylinder / dome / prism | ✅ 无透视、无旋转；平移与 0.75×–2.5× 缩放只动取景框，不改变投影（N-06） |
 | 2 | 统一左上光；三面 1.0/0.86/0.68 + 1px 亮棱暗棱；短柔阴影偏右下 | `tokens.ts LIGHT`；`primitives.ts` 的 `box/cylinder/dome/prism/contactShadow` | ✅ 单一只 `LIGHT` 常量，无第二套明暗；阴影恒偏右下（左右归属的裁决见 decisions C-01） |
-| 3 | 硬边拼花表面：底色 + 低频噪声 + 细 dither + 1px 暗缝；材质硬边相接 | `render/terrain/` 各材质 painter（`materials-a/b/c.ts`） | ✅ 15 种材质各自的纹理语言；边界仅用 5 点 dither，无大面积渐变 |
-| 4 | HUD 哑光近黑钢板 + 1px 冷钢描边 + 直角；禁玻璃/模糊/泛光/大圆角 | `ui/hud.css` | ✅ 无 `backdrop-filter`、无 `filter: blur`、无 `box-shadow` 光晕；`border-radius: 0` |
-| 5 | 压深黑位 + 低饱和；只有主强调/功能/状态三色，危险色仅警报与敌方 | `tokens.ts PALETTE` 唯一色源 | ✅ 全部强调色从 PALETTE 取；`--oc-danger` 只出现在警报与敌方资产 |
+| 3 | 自然地连续：世界坐标岩层/风纹/水波，12/5 格 companion 斑块；人工网格只属于道路与地坪 | `render/terrain/surface-rules.ts`、`terrain/surface-paint.ts`、`terrain/noise.ts` | ✅ 15 种材质无逐格暗缝，跨 chunk 与环面相位一致；矿脉/煤矿保留材质差异 |
+| 4 | 暖白工程纸 HUD + 深色数据视窗 + 1px 描边；禁玻璃/模糊/泛光/大圆角 | `ui/hud.css`、`ui/panels.css`、`ui/radar-palette.ts` | ✅ 浅底文字与深底 SIGNAL 分离；无 `backdrop-filter`、无 `filter: blur`、无 `box-shadow` 光晕；`border-radius: 0` |
+| 5 | 低饱和矿质材质；主强调/功能/状态/危险四色纪律，危险色仅警报与敌方 | `tokens.ts PALETTE + SIGNAL` 唯一色源 | ✅ 浅底用 PALETTE，深视窗与世界灯带用同色相 SIGNAL；陶瓷白只用于实体 |
 | 6 | 中文为主体（700），英文宽字距小号；数字等宽；三档字号；1px 分隔线 | `ui/hud.css` + `ui/*.ts` | ✅ 10/12/14 + 26 显示位；`.oc-num` 系列 `tabular-nums`；分隔线全为 1px |
-| 7 | 全部程序化绘制或内联 SVG 线性图标；零位图/emoji/图标字体 | `ui/icons.ts` + `render/**` | ✅ `scripts/check-assets.mjs` 在 CI 里强制 |
-| 8 | 世界用 Canvas、HUD 用 DOM；两者共用同一套色板 token | `render/*` vs `ui/*`；`style/tokens.ts` + `inject-theme.ts` | ✅ HUD 只读 `--oc-*` 变量（由 tokens 注入），Canvas 直接 import PALETTE |
+| 7 | 全部程序化绘制或双色等距 inline SVG；零位图/emoji/图标字体 | `ui/icon-kit.ts`、`ui/icons-assets.ts` + `render/**` | ✅ `scripts/check-assets.mjs` 在 CI 里强制 |
+| 8 | 世界用 Canvas、HUD 用 DOM；两者共用同一套色板 token | `render/*` vs `ui/*`；`style/tokens.ts` + `inject-theme.ts` | ✅ HUD 只读 `--oc-*` 变量（由 tokens 注入），Canvas 直接 import PALETTE/SIGNAL |
 
 ## 工程验收
 
@@ -186,10 +187,10 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 |---|---|
 | 依赖方向零违规 | ✅ ESLint `no-restricted-imports` 强制；`render/` `ui/` 不得 import `app/` `net/` |
 | 协议类型全部生成 | ✅ `ts-rs` → `web/src/generated/*.ts`；内容 key 由 `oc-content` codegen |
-| 新增建筑只改两处 | ✅ content 表 + 渲染注册，缺一即编译错误 |
+| 新增建筑只改两处 | ✅ content 表 + `BUILDING_ART` 注册，缺一即编译错误 |
 | clippy / tsc 零警告 | ✅ `cargo clippy --all-targets -- -D warnings`、`tsc --noEmit` |
 | 同 seed 状态哈希一致 | ✅ `oc-sim-cli` 双跑比对 + `crates/sim/tests/determinism.rs` |
-| 60fps / 30Hz | ✅ 区块流送 + 逐帧烘焙预算（4ms/帧）、精灵不逐帧重建、HUD 脏检查；`?debug=1` 可观测 |
+| 60fps / 30Hz | ✅ 地形 24 Mpx + 静态建筑 8 Mpx LRU；body/motion 分离、共享锚点、HUD 脏检查；`?debug=1` 可观测 |
 | 无位图请求 | ✅ 仅 `oc.wasm` 一个二进制请求 |
 | 中文无乱码 | ✅ UTF-8 + 系统黑体栈 |
 | 1280 / 1920 不破版 | ✅ 右栏 300/336px 两档，建造卡恒 2 列 |
@@ -212,8 +213,8 @@ Rust 产出的 `snapshot.bin / commands.bin / boot.bin` 金标准固件被 `vite
 **P2 表现层（Canvas + DOM HUD）**
 - 守住：不变量 1/2/3/4/5/6/7/8 逐条对照实现（见上表）；HUD 无模糊、无泛光、直角、1px。
 - 偏离：N-03（顶栏 34px / 右栏 336px，均在 20% 内）、N-04（选中用琥珀实底而非发光）。
-- 创意点：**等高线崖壁**（由 elevation step 生成 3–4px 岩面）、雷达地表轮廓取自真实材质场、
-  矿脉琥珀点作为唯一资源标记。
+- 创意点：**连续世界材质**（世界坐标岩层与水波）、真实材质雷达、铜金矿切面与扁平煤矿层理；
+  陶瓷白设施、深色数据视窗和静态主体缓存共同构成现代航天工程图谱。
 
 **P3 交互闭环 + 性能**
 - 守住：单向数据流（放置合法性由仿真回答，TS 不复制规则）、60fps 渲染 / 30Hz 仿真、

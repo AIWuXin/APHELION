@@ -67,8 +67,8 @@ pnpm run wasm        # cargo build --target wasm32-unknown-unknown → web/publi
 pnpm run dev         # http://127.0.0.1:5178
 ```
 
-需要：Node 20+、pnpm、Rust 1.80+ 且已安装 `wasm32-unknown-unknown`
-（`rustup target add wasm32-unknown-unknown`）。**不需要** wasm-pack / wasm-bindgen。
+需要：Node 20+、pnpm、Rust 1.96.0（由 `rust-toolchain.toml` 固定）且已安装
+`wasm32-unknown-unknown`（`rustup target add wasm32-unknown-unknown`）。**不需要** wasm-pack / wasm-bindgen。
 
 生产构建与自检：
 

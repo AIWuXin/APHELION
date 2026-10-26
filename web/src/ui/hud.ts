@@ -2,8 +2,8 @@
  * The DOM HUD.
  *
  * A thin composition root: twelve panel modules own their own markup and
- * in-place updates, this file only mounts them, routes the snapshot view once
- * per frame, and feeds the presentation-side event pipeline (log → subtitle →
+ * in-place updates. This file mounts them, routes the view once per render
+ * frame, and ingests discrete events on snapshot arrival (log → subtitle →
  * alert strip).
  *
  * Material contract (see `hud.css`): warm engineering panels with dark data
@@ -11,6 +11,7 @@
  * numeric readouts in tabular monospace.
  */
 
+import { eraAllowsKey } from '../content/era';
 import { h } from './dom';
 import type { Hud, HudActions, HudView, TerrainLookup } from './hud-api';
 import { AlertStrip } from './panels/alert';
@@ -54,7 +55,8 @@ export class HudLayer implements Hud {
   private root: HTMLElement | null = null;
   private dtMs = 16;
   private readonly onResize = (): void => {
-    this.parts?.scan.resize();
+    const scan = this.parts?.scan;
+    if (scan && !scan.element.hidden) scan.resize();
   };
 
   public constructor(
@@ -65,18 +67,34 @@ export class HudLayer implements Hud {
 
   public update(view: HudView): void {
     const parts = this.parts ?? this.mount(view);
+    const defs = view.boot.catalog.buildings;
+    const era = view.snapshot.era;
+    const scanEnabled = eraAllowsKey(defs, 'radar-array', era);
+    const lanesEnabled = eraAllowsKey(defs, 'freight-dock', era);
+    const techEnabled = eraAllowsKey(defs, 'research-lab', era);
+    const scanWasHidden = parts.scan.element.hidden;
+    parts.scan.element.hidden = !scanEnabled;
+    parts.lanes.element.hidden = !lanesEnabled;
+    parts.tech.element.hidden = !techEnabled;
 
     parts.topbar.update(view);
-    parts.scan.update(view, this.dtMs);
+    if (scanEnabled) {
+      if (scanWasHidden) parts.scan.resize();
+      parts.scan.update(view, this.dtMs);
+    }
     parts.directives.update(view);
-    parts.lanes.update(view);
+    if (lanesEnabled) parts.lanes.update(view);
     parts.fabricator.update(view);
     parts.readout.update(view);
-    parts.tech.update(view);
+    if (techEnabled) parts.tech.update(view);
     parts.sandbox.update(view);
     parts.debug.update(view);
+    this.consumeEvents(view);
+  }
 
-    // Only ticks that carry a new event batch move the log / subtitle / alert.
+  /** Ingest events as soon as a snapshot arrives, even if rendering is stalled. */
+  public consumeEvents(view: HudView): void {
+    const parts = this.parts ?? this.mount(view);
     for (const entry of parts.log.consume(view)) {
       if (entry.speaker.length > 0) parts.subtitle.say(entry.speaker, entry.text);
       if (entry.tone === 2) parts.alert.show(entry.text, 2, entry.tx, entry.ty);

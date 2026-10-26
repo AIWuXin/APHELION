@@ -53,10 +53,12 @@ requestAnimationFrame
 
 WasmTransport 自己跑 30Hz 定时器：
   oc_step() → oc_snapshot_ptr/len → decodeSnapshot → handlers.onSnapshot(snapshot)
+    └─ HudLayer.consumeEvents(HudView)   离散事件立即进入日志 / 字幕 / 警报
 ```
 
 渲染 60fps、仿真 30Hz 解耦：仿真按固定步长推进（`TICK_MS = 33`），渲染只读最新快照。
-速度档位是仿真内部的倍率（1/2/4 个 tick 每次 step），因此提速不改变确定性语义。
+离散事件不等待 rAF，避免暂停、后台或掉帧时下一份快照覆盖尚未消费的事件；同一快照对象
+在渲染帧仍会去重（D-20）。速度档位是仿真内部的倍率（1/2/4 个 tick 每次 step），因此提速不改变确定性语义。
 
 **两层画布缓存**：`TerrainLayer` 继续按视口流送、分帧烘焙，预算 24 Mpx；`BuildingRenderer`
 每帧只计算一次 `rasterScale(dpr, zoom)`，16 类已建成建筑的 `body` 进入独立的
@@ -136,6 +138,8 @@ export class WebSocketTransport implements Transport {
 - 启动一次：`oc_init(seed)` → `BootBlob`（`Catalog` + 行星参数 `MapView`）→ 之后每帧只发 `Snapshot`。
   `BootBlob` 不含地形数组；客户端按视口调用 `oc_chunk(cx, cy)` 流送 32×32 的 `ChunkView`。
 - 命令：`CommandBatch { client_tick, commands: Vec<Command> }`，postcard。
+- 事件：`Snapshot.events` 聚合一次宿主 `step()` 内的命令与 1–4 个 tick，下一 step 清空；
+  HUD 自己维护六条环形日志，不能把快照事件理解为只来自末尾 tick（D-19）。
 - 扩展协议：**只在枚举末尾追加 variant**，不改既有字段；随后跑
   `cargo test -p oc-protocol` 重新生成 `web/src/generated/` 与 `web/tests/fixtures/`，
   `npx vitest run` 会验证两侧一致。

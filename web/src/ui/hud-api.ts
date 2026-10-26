@@ -54,6 +54,8 @@ export interface HudView {
   readonly selection: HudSelection;
   /** Building table index currently being placed, or -1. */
   readonly placing: number;
+  /** Kernel reason for the current ghost, or null without a placement query. */
+  readonly placementReason: number | null;
   /** Diagnostics, `?debug=1` only. */
   readonly debug: {
     readonly fps: number;
@@ -85,6 +87,8 @@ export interface TerrainLookup {
 
 /** The mounted HUD. */
 export interface Hud {
+  /** Ingest discrete events on snapshot arrival, independently of render frames. */
+  consumeEvents(view: HudView): void;
   /** Replace the rendered model. Must not touch simulation state. */
   update(view: HudView): void;
   /** Advance presentation-only animation timers. */

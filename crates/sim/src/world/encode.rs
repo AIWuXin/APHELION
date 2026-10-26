@@ -1,4 +1,4 @@
-//! Snapshot and boot-blob encoding plus the per-tick state hash.
+//! Snapshot and boot-blob encoding plus the per-snapshot state hash.
 //!
 //! The hash is FNV-1a over the *encoded* snapshot frame (taken with a zero hash
 //! field), which means it covers every observable field without a
@@ -214,7 +214,7 @@ impl World {
         self.map.chunk_view(cx, cy)
     }
 
-    /// Encoded snapshot for the most recent tick.
+    /// Encoded snapshot for the most recent host step.
     #[must_use]
     pub fn snapshot_bytes(&self) -> &[u8] {
         &self.snapshot_buf

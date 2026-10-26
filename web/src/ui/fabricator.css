@@ -23,5 +23,6 @@
 .oc-card.is-locked .oc-card__price { color: var(--oc-primary); }
 .oc-fab__place { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; height: 20px; padding: 0 6px; background: var(--oc-panel-2); border-top: 1px solid var(--oc-line); font-size: 10px; letter-spacing: .06em; color: var(--oc-ink-2); }
 .oc-fab__place-tag { font-family: var(--oc-font-mono); font-size: 10px; letter-spacing: .16em; color: var(--oc-primary); }
-.oc-fab__place-hint { margin-left: auto; color: var(--oc-ink-3); }
+.oc-fab__place-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.oc-fab__place-hint { margin-left: auto; flex: 0 0 auto; color: var(--oc-ink-3); }
 @media (max-height: 950px) { .oc-fab__cards { grid-auto-rows: 72px; } }

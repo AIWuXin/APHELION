@@ -77,7 +77,7 @@ pub struct World {
     pub effects: Vec<Effect>,
     /// Transient line effects.
     pub beams: Vec<Beam>,
-    /// Events for this tick only.
+    /// Events for this host step only, including all accelerated sub-ticks.
     pub events: Vec<Event>,
     /// Next entity id.
     pub next_id: u32,
@@ -288,8 +288,10 @@ impl World {
         self.pending.push(command);
     }
 
-    /// Advance the simulation by one host frame.
+    /// Advance the simulation by one host frame. Events accumulate across the
+    /// commands and 1–4 ticks in this step, then expire at the next step.
     pub fn step(&mut self) {
+        self.events.clear();
         self.apply_pending();
         let mult = match self.speed {
             0 => 0,
@@ -318,7 +320,6 @@ impl World {
     }
 
     fn advance(&mut self) {
-        self.events.clear();
         let dt = TICK_MS;
         crate::systems::run_all(self, dt);
         self.age_effects();

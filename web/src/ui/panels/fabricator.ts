@@ -14,8 +14,9 @@
 import { CATEGORY_KEYS, CATEGORY_LABELS_ZH } from '../../generated/content-keys';
 import type { BuildingDef } from '../../generated/BuildingDef';
 import { buildableKinds } from '../../content/era';
+import { placementReasonText } from '../../content/placement';
 import type { HudActions, HudView } from '../hud-api';
-import { h, setClass, setText, signed } from '../dom';
+import { h, setClass, setText, setTitle, signed } from '../dom';
 import { seconds } from '../format';
 import { CATEGORY_ICONS, BUILDING_ICONS, ICON_STRUCTURE } from '../icons';
 import { createPanel } from '../panel';
@@ -62,7 +63,7 @@ export class FabricatorPanel {
     });
 
     this.cards = h('div', { class: 'oc-fab__cards oc-scroll' });
-    this.placeName = h('span', { text: '' });
+    this.placeName = h('span', { class: 'oc-fab__place-name', text: '' });
     this.placeLine = h('div', { class: 'oc-fab__place' }, [
       h('span', { class: 'oc-fab__place-tag', text: 'PLACING' }),
       this.placeName,
@@ -90,7 +91,13 @@ export class FabricatorPanel {
     const placing = view.placing;
     const placingDef = placing >= 0 ? this.defs[placing] : undefined;
     this.placeLine.hidden = !placingDef;
-    if (placingDef) setText(this.placeName, `${placingDef.name_zh} · 左键放置`);
+    if (placingDef) {
+      const reason = view.placementReason;
+      const hint = reason === null || reason === 0 ? '左键放置' : placementReasonText(reason);
+      const text = `${placingDef.name_zh} · ${hint}`;
+      setText(this.placeName, text);
+      setTitle(this.placeName, text);
+    }
   }
 
   // ------------------------------------------------------------------ helpers

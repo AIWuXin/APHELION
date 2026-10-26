@@ -23,6 +23,7 @@ import { CameraRig } from './camera-rig';
 import { startDemo } from './demo';
 import { Input, bindKeys } from './input';
 import { handleKey } from './keys';
+import { updatePlacementQuery } from './placement';
 import { buildingAt, tileAt, unitAt } from './picking';
 import { Store } from './store';
 
@@ -139,11 +140,13 @@ export class App {
       onSnapshot: (snapshot) => {
         this.lastSnapshotAt = performance.now();
         this.store.pushSnapshot(snapshot);
+        updatePlacementQuery(this.store, this.transport, this.placing);
         this.store.validateSelection();
         const stats = this.stats();
         this.store.stepMs = stats.stepMs;
         this.store.snapshotBytes = stats.snapshotBytes;
         this.store.banner = stats.banner;
+        this.hud?.consumeEvents(this.hudView(snapshot));
       },
       onError: (message) => this.fatal(message),
     });
@@ -211,6 +214,7 @@ export class App {
   private beginPlacing(kind: number): void {
     this.placing = this.placing === kind ? -1 : kind;
     if (this.placing >= 0) this.store.clearSelection();
+    updatePlacementQuery(this.store, this.transport, this.placing);
   }
 
   private cancel(): void {
@@ -245,10 +249,7 @@ export class App {
     const previous = this.store.hover;
     if (previous && previous.tx === tile.tx && previous.ty === tile.ty) return;
     this.store.hover = { tx: tile.tx, ty: tile.ty };
-    if (this.placing >= 0) {
-      const q = this.transport.queryPlace?.(this.placing, tile.tx, tile.ty);
-      this.store.placementOk = q?.ok ?? false;
-    }
+    updatePlacementQuery(this.store, this.transport, this.placing);
   }
 
   private pick(screenX: number, screenY: number, additive: boolean): void {
@@ -365,6 +366,7 @@ export class App {
       boot,
       selection: { id: this.store.selected, kind: this.store.selectedKind },
       placing: this.placing,
+      placementReason: this.store.placementReason,
       debug: this.debug
         ? {
             fps: this.store.fps,

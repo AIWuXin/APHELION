@@ -90,6 +90,9 @@ if (!onlyRust) {
   run('web: file length guard', 'node', ['scripts/check-file-length.mjs']);
   run('web: no bitmap / emoji assets', 'node', ['scripts/check-assets.mjs']);
   run('web: text files are BOM-free', 'node', ['scripts/strip-bom.mjs', '--check']);
+}
+
+if (!onlyWeb && !onlyRust) {
   run('package: two Windows exes (desktop + browser)', 'node', ['scripts/package-exe.mjs']);
 }
 

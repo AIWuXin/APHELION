@@ -25,6 +25,7 @@ export class Store {
   public selectedKind: 'building' | 'unit' | 'none' = 'none';
   public placing = -1;
   public placementOk = false;
+  public placementReason: number | null = null;
   public hover: { tx: number; ty: number } | null = null;
   public pings: Ping[] = [];
   public fps = 0;

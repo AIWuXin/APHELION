@@ -1,4 +1,4 @@
-//! Read-only world state handed to the presentation layer once per tick.
+//! Read-only world state handed to the presentation layer once per host step.
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -315,7 +315,7 @@ pub struct EventView {
     pub ty: i16,
 }
 
-/// The whole observable world for one tick.
+/// The latest observable world after one host simulation step.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../web/src/generated/")]
 pub struct Snapshot {
@@ -345,7 +345,7 @@ pub struct Snapshot {
     pub effects: Vec<EffectView>,
     /// Line-shaped effects (shots, tractor beams).
     pub beams: Vec<BeamView>,
-    /// Events emitted this tick.
+    /// Events emitted during this host step (1–4 simulation ticks).
     pub events: Vec<EventView>,
     /// Current era (1 = mother-planet T1). Building tiers above it are locked.
     pub era: u8,

@@ -9,7 +9,7 @@ import type { Resources } from "./Resources";
 import type { UnitView } from "./UnitView";
 
 /**
- * The whole observable world for one tick.
+ * The latest observable world after one host simulation step.
  */
 export type Snapshot = { 
 /**
@@ -65,7 +65,7 @@ effects: Array<EffectView>,
  */
 beams: Array<BeamView>, 
 /**
- * Events emitted this tick.
+ * Events emitted during this host step (1–4 simulation ticks).
  */
 events: Array<EventView>, 
 /**

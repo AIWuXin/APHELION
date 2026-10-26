@@ -2,11 +2,9 @@
  * Era gates over the content table.
  *
  * `BuildingDef.tier` is the era the kernel demands before it accepts a
- * placement; `Snapshot.era` is the era the campaign is currently in. Two callers
- * need that comparison and must never disagree: the build rail, which hides the
- * cards the kernel would refuse, and the demo script, which must not queue
- * commands that can only fail. The rule lives here so neither re-derives it
- * from raw numbers.
+ * placement; `Snapshot.era` is the era the campaign is currently in. The build
+ * rail, demo script and era-gated HUD panels share this comparison so they
+ * never disagree with each other or re-derive it from raw numbers.
  *
  * Hand written: everything under `generated/` is regenerated from Rust.
  */
@@ -24,6 +22,11 @@ const HUB_KIND = 0;
  */
 export function eraAllows(def: BuildingDef | undefined, era: number): boolean {
   return def !== undefined && def.tier <= era;
+}
+
+/** Resolve a stable content key before applying the same era gate. */
+export function eraAllowsKey(defs: readonly BuildingDef[], key: string, era: number): boolean {
+  return eraAllows(defs.find((def) => def.key === key), era);
 }
 
 /**

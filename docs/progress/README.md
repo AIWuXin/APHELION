@@ -7,10 +7,14 @@ agent 自己的工作档案：只写结论、文件路径、验证证据、风�
 
 - 项目：APHELION · 远日点 `0.1.0a1`。Rust 确定性仿真内核（WASM）+ TS 表现层；分发形态：WebView2 原生桌面窗口（主，`aphelion-desktop`）+ 单文件浏览器启动器（兜底，`aphelion`）。
 - 阶段：**0.1.0a1 已发布**（2026-10-22）：行星级世界 + 大陆出生点 + 深水美术 + 改名「远日点」；commit/push/tag `v0.1.0a1`/GitHub Release（双 exe）完成。
-- 下一步：T1 剩余打磨与 T2（石油/化工）设计；迭代2候选：era1 隐藏未解锁面板、REASON_* 中文表、事件日志去重。
+- 下一步：T1 平衡实测与 T2（石油/化工）设计。
 
 ## 最近更新
 
+- 2026-10-26 · [暂停与掉帧下的事件交付：快照即时摄取（D-20）](tasks/2026-10-26-paused-events.md)
+- 2026-10-26 · [CI --web 真正只跑前端 + Rust 工具链文档同步](tasks/2026-10-26-ci-web-mode.md)
+- 2026-10-26 · [宿主 step 快照事件保留：修复 rush 命令与子 tick 事件丢失（D-19）](tasks/2026-10-26-step-events.md)
+- 2026-10-26 · [T1 HUD：时代面板显隐 + 放置原因中文反馈 + 多落点事件去重](tasks/2026-10-26-t1-hud-feedback.md)
 - 2026-10-22 · [发版 0.1.0a1：改名「远日点」+ 提交/推送/tag/Release](tasks/2026-10-22-release-a1.md)
 - 2026-10-22 · [出生点大陆保证：八向内陆射线，家选拆入 mapgen/home.rs](tasks/2026-10-22-continent-home.md)
 - 2026-10-22 · ["还是旧世界"危机侦破：条纹=海洋，exe 无问题；暴露出生点临海问题](tasks/2026-10-22-stale-world-crisis.md)

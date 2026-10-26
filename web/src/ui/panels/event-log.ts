@@ -1,10 +1,11 @@
 /**
  * 事件日志 / EVENT LOG.
  *
- * The snapshot only carries the events of the current tick, so the HUD owns a
- * small presentation-side ring buffer (latest first, six entries). Entries are
- * deduplicated by `(kind, a, b)` while they sit in the buffer: a structure
- * under sustained fire produces one log line, not one per tick.
+ * The snapshot only carries the events of the current host step, so the HUD
+ * owns a small presentation-side ring buffer (latest first, six entries).
+ * Entries are deduplicated by `(kind, a, b, tx, ty)` while they sit in the buffer: a
+ * structure under sustained fire produces one log line, while simultaneous
+ * squads at different landing sites remain distinct.
  *
  * This module is also the feed for the subtitle line and the alert strip; the
  * caller reads the entries returned by {@link EventLogPanel.consume}.
@@ -35,6 +36,11 @@ export interface LogEntry {
   readonly speaker: string;
 }
 
+/** Location distinguishes simultaneous squads without disabling repeat dedup. */
+export function eventDedupKey(ev: { kind: number; a: number; b: number; tx: number; ty: number }): string {
+  return `${ev.kind}:${ev.a}:${ev.b}:${ev.tx}:${ev.ty}`;
+}
+
 /** The event log panel. */
 export class EventLogPanel {
   public readonly element: HTMLElement;
@@ -42,7 +48,7 @@ export class EventLogPanel {
   private readonly empty: HTMLElement;
   private readonly buffer: LogEntry[] = [];
   private readonly keys = new Set<string>();
-  private lastTick = -1;
+  private lastSnapshot: HudView['snapshot'] | null = null;
 
   public constructor(
     private readonly actions: HudActions,
@@ -56,19 +62,18 @@ export class EventLogPanel {
   }
 
   /**
-   * Ingest one snapshot. Returns the entries added by this tick, oldest first,
-   * so the caller can drive the subtitle and the alert strip in order.
+   * Ingest one snapshot. Returns the entries added by this snapshot, oldest
+   * first, so the caller can drive the subtitle and the alert strip in order.
    */
   public consume(view: HudView): readonly LogEntry[] {
-    const tick = view.snapshot.tick;
-    if (tick === this.lastTick) return [];
-    this.lastTick = tick;
+    if (view.snapshot === this.lastSnapshot) return [];
+    this.lastSnapshot = view.snapshot;
 
     const added: LogEntry[] = [];
     for (const ev of view.snapshot.events) {
       const def = this.boot.catalog.events[ev.kind];
       if (!def) continue;
-      const key = `${ev.kind}:${ev.a}:${ev.b}`;
+      const key = eventDedupKey(ev);
       if (this.keys.has(key)) continue;
       const entry: LogEntry = {
         key,

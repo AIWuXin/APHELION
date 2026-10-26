@@ -1,9 +1,9 @@
 {
   "name": "aphelion",
   "private": true,
-  "version": "0.1.0-a1",
+  "version": "0.1.0-a2",
   "type": "module",
-  "description": "APHELION 0.1.0a1 — isometric colony builder with a Rust simulation core",
+  "description": "APHELION 0.1.0a2 — isometric colony builder with a Rust simulation core",
   "packageManager": "pnpm@11.22.0",
   "engines": {
     "node": ">=20"

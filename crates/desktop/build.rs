@@ -145,7 +145,7 @@ fn windows_resources(build_stamp: &str, build_zone: &str) {
     let major = parts.next().unwrap_or(0);
     let minor = parts.next().unwrap_or(0);
     let patch = parts.next().unwrap_or(0);
-    // Cargo needs `0.1.0-a1`; VERSIONINFO strings and the UI use `0.1.0a1`
+    // Cargo needs `0.1.0-a2`; VERSIONINFO strings and the UI use `0.1.0a2`
     // (same mapping as `scripts/package-exe.mjs` and PRODUCT_VERSION).
     let display_version = version.replace('-', "");
 

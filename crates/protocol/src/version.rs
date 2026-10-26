@@ -9,9 +9,9 @@
 pub const PROTOCOL_VERSION: u16 = 2;
 
 /// Human facing product version: shown by the launcher, the debug overlay and
-/// the README. Cargo and npm need the semver form `0.1.0-a1`; this is the display
+/// the README. Cargo and npm need the semver form `0.1.0-a2`; this is the display
 /// form used in prose and in the UI.
-pub const PRODUCT_VERSION: &str = "0.1.0a1";
+pub const PRODUCT_VERSION: &str = "0.1.0a2";
 
 /// Hard cap on entities in a snapshot, used to size client-side scratch buffers.
 pub const MAX_ENTITIES: usize = 1024;
@@ -25,5 +25,5 @@ pub const MAX_EVENTS: usize = 64;
 /// Build the protocol banner shown in the debug overlay.
 #[must_use]
 pub fn banner() -> &'static str {
-    "APHELION 0.1.0a1 :: sim/proto-2"
+    "APHELION 0.1.0a2 :: sim/proto-2"
 }

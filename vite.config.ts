@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 
-/** `0.1.0-a1` (semver) → `0.1.0a1` (display, matches `oc_protocol::PRODUCT_VERSION`). */
+/** `0.1.0-a2` (semver) → `0.1.0a2` (display, matches `oc_protocol::PRODUCT_VERSION`). */
 function displayVersion(): string {
   const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
     version: string;
@@ -10,7 +10,7 @@ function displayVersion(): string {
 }
 
 /**
- * Build identity baked into the bundle: `0.1.0a1 · 1022-1120` (local time, like
+ * Build identity baked into the bundle: `0.1.0a2 · 1022-1120` (local time, like
  * the exe's stamp and the file timestamps in Explorer).
  */
 function buildStamp(): string {

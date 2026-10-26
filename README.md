@@ -1,4 +1,4 @@
-# APHELION · 远日点 `0.1.0a1`
+# APHELION · 远日点 `0.1.0a2`
 
 [![ci](https://github.com/AIWuXin/APHELION/actions/workflows/ci.yml/badge.svg)](https://github.com/AIWuXin/APHELION/actions/workflows/ci.yml)
 
@@ -6,8 +6,8 @@
 > 资源、运力、补给他们都在最远端，你只有自己的判断。
 
 等距视角的星球建造 + 太空计划 + 星际物流与舰队对抗。**Rust 仿真内核 + TypeScript 表现层**，
-在浏览器里单机运行；同时提供 Windows 桌面窗口版（`dist-exe/APHELION-0.1.0a1.exe`）与
-兜底的浏览器版（`dist-exe/APHELION-0.1.0a1-browser.exe`）。
+在浏览器里单机运行；同时提供 Windows 桌面窗口版（`dist-exe/APHELION-0.1.0a2.exe`）与
+兜底的浏览器版（`dist-exe/APHELION-0.1.0a2-browser.exe`）。
 
 ```
 建造殖民地 → 通电与采掘 → 造火箭送上轨道 → 开通星际航线 → 抵御周期来袭的舰队 → 再投资
@@ -33,8 +33,8 @@
 **方式 A：直接双击 `exe`（推荐给只想玩的人）**
 
 ```text
-dist-exe\APHELION-0.1.0a1.exe            桌面版（主产物）
-dist-exe\APHELION-0.1.0a1-browser.exe    浏览器兜底版
+dist-exe\APHELION-0.1.0a2.exe            桌面版（主产物）
+dist-exe\APHELION-0.1.0a2-browser.exe    浏览器兜底版
 ```
 
 **桌面版**是首选：双击直接出现原生窗口（系统 WebView2），**不启动浏览器、不开端口**，关窗即退出。
@@ -132,7 +132,7 @@ crates/desktop  原生窗口：tao + wry/WebView2，aphelion:// 直读内嵌资�
 crates/launcher 浏览器兜底 exe：内嵌 dist + 本地 HTTP + 开浏览器  ← 纯 std，零依赖
 ```
 
-> 版本：Cargo/npm 用 semver `0.1.0-a1`，展示与产物文件名为 `0.1.0a1`
+> 版本：Cargo/npm 用 semver `0.1.0-a2`，展示与产物文件名为 `0.1.0a2`
 > （`oc_protocol::PRODUCT_VERSION`，同时出现在启动器横幅与 `?debug=1` 的调试层里）。
 
 **单向数据流**：`输入 → Command[] → Transport.send → sim.step() → Snapshot → 渲染 / HUD`。

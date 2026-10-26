@@ -27,7 +27,7 @@ export class SubtitlePanel {
       this.who,
       this.line,
       h('span', { class: 'oc-subtitle__seed oc-num', text: `SEED ${(boot.seed >>> 0).toString(16).toUpperCase()}` }),
-      // Build identity (`0.1.0a1 · 1022-1120`): the running client says which
+      // Build identity (`0.1.0a2 · 1022-1120`): the running client says which
       // build it is, so a stale bundle can never masquerade as a fresh one.
       h('span', { class: 'oc-subtitle__stamp oc-num', text: __OC_BUILD_STAMP__ }),
     ]);

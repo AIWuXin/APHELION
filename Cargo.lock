@@ -1399,7 +1399,7 @@ dependencies = [
 
 [[package]]
 name = "oc-bridge-wasm"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 dependencies = [
  "oc-content",
  "oc-iso",
@@ -1410,7 +1410,7 @@ dependencies = [
 
 [[package]]
 name = "oc-content"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 dependencies = [
  "oc-protocol",
  "postcard",
@@ -1419,7 +1419,7 @@ dependencies = [
 
 [[package]]
 name = "oc-desktop"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 dependencies = [
  "embed-resource",
  "oc-launcher",
@@ -1430,18 +1430,18 @@ dependencies = [
 
 [[package]]
 name = "oc-iso"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 
 [[package]]
 name = "oc-launcher"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 dependencies = [
  "oc-protocol",
 ]
 
 [[package]]
 name = "oc-protocol"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 dependencies = [
  "postcard",
  "serde",
@@ -1450,7 +1450,7 @@ dependencies = [
 
 [[package]]
 name = "oc-sim"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 dependencies = [
  "oc-content",
  "oc-iso",
@@ -1460,7 +1460,7 @@ dependencies = [
 
 [[package]]
 name = "oc-sim-cli"
-version = "0.1.0-a1"
+version = "0.1.0-a2"
 dependencies = [
  "oc-content",
  "oc-iso",

@@ -19,7 +19,7 @@ pub fn prepare() {
         }
 
         const UTF8_CODE_PAGE: u32 = 65001;
-        let title: Vec<u16> = OsStr::new("APHELION 0.1.0a1")
+        let title: Vec<u16> = OsStr::new("APHELION 0.1.0a2")
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();

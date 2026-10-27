@@ -72,29 +72,30 @@ describe('boot blob', () => {
     const bytes = readBytes('boot.bin');
     const boot = decodeBootBlob(bytes);
     expect(boot.protocol).toBe(CLIENT_PROTOCOL);
-    expect(boot.catalog.buildings).toHaveLength(16);
+    expect(boot.catalog.buildings).toHaveLength(17);
     expect(boot.catalog.buildings[0]?.key).toBe('command-hub');
     // The hub is the colony's 3x3 landmark. A 2 here means the fixture is stale:
     // regenerate it with `cargo test -p oc-content` (emit_boot_fixture).
     expect(boot.catalog.buildings[0]?.footprint).toBe(3);
     expect(boot.catalog.buildings[14]?.key).toBe('coal-mine');
     expect(boot.catalog.buildings[14]?.tier).toBe(1);
+    expect(boot.catalog.buildings[16]?.key).toBe('oil-well');
+    expect(boot.catalog.buildings[16]?.tier).toBe(2);
     expect(boot.catalog.buildings[5]?.tier).toBe(3);
     expect(boot.catalog.routes).toHaveLength(3);
     expect(boot.catalog.techs).toHaveLength(4);
-    // The era-1 ground raid needs no HUD code of its own: the event log reads
-    // this row, so the row being present is the whole feature.
     const raid = boot.catalog.events[13];
     expect(raid?.key).toBe('raid');
     expect(raid?.speaker).toBe('TACTICAL');
     expect(raid?.tone).toBe(2);
     expect(raid?.text_zh).toContain('掠袭');
+    expect(boot.catalog.events[14]?.key).toBe('era');
+    expect(boot.catalog.events[15]?.key).toBe('freight');
   });
 
-  it('carries the planet metadata instead of a tile array', () => {
+  it('carries planet and resource-anchor metadata instead of a tile array', () => {
     const { map } = decodeBootBlob(readBytes('boot.bin'));
-    // Protocol 2: the planet is 10240 x 10240 generated per chunk, so the boot
-    // blob is dimensions + chunk size + the colony anchor, and nothing else.
+    // Protocol 3: terrain streams per chunk; boot carries the colony and oilfield.
     expect(map.seed).toBe(0x5eed_1234);
     expect(map.width).toBe(10_240);
     expect(map.height).toBe(10_240);
@@ -105,10 +106,13 @@ describe('boot blob', () => {
     expect(map.start_tx).toBeLessThan(map.width);
     expect(map.start_ty).toBeGreaterThan(0);
     expect(map.start_ty).toBeLessThan(map.height);
-    // The old `MapView` fields must be gone, not merely unused.
+    expect(map.oil_tx).toBeGreaterThan(0);
+    expect(map.oil_ty).toBeLessThan(map.height);
     expect(Object.keys(map).sort()).toEqual([
       'chunk_size',
       'height',
+      'oil_tx',
+      'oil_ty',
       'seed',
       'start_tx',
       'start_ty',
@@ -128,14 +132,16 @@ describe('chunk view', () => {
       elev_head: number[];
       ore_head: number[];
       coal_head: number[];
+      oil_head: number[];
       ore_sum: number;
       coal_sum: number;
+      oil_sum: number;
     };
     const chunk = decodeChunkView(new Reader(readBytes('chunk.bin')));
     expect(chunk.cx).toBe(expected.cx);
     expect(chunk.cy).toBe(expected.cy);
-    // Five row-major arrays of chunk_size^2 entries each.
-    for (const field of ['terrain', 'decor', 'elev', 'ore', 'coal'] as const) {
+    // Six row-major arrays of chunk_size^2 entries each.
+    for (const field of ['terrain', 'decor', 'elev', 'ore', 'coal', 'oil'] as const) {
       expect(chunk[field], field).toHaveLength(expected.size);
     }
     expect(chunk.terrain.slice(0, 16)).toEqual(expected.terrain_head);
@@ -144,9 +150,11 @@ describe('chunk view', () => {
     expect(chunk.elev.slice(0, 16)).toEqual(expected.elev_head);
     expect(chunk.ore.slice(0, 16)).toEqual(expected.ore_head);
     expect(chunk.coal.slice(0, 16)).toEqual(expected.coal_head);
+    expect(chunk.oil.slice(0, 16)).toEqual(expected.oil_head);
     const readSum = (values: readonly number[]): number =>
       values.reduce((sum, v) => sum + v, 0);
     expect(readSum(chunk.ore)).toBe(expected.ore_sum);
     expect(readSum(chunk.coal)).toBe(expected.coal_sum);
+    expect(readSum(chunk.oil)).toBe(expected.oil_sum);
   });
 });

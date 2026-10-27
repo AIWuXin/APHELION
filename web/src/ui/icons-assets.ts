@@ -20,8 +20,11 @@ const repair = B('repair-bay', `<path d="M4 31h40M7 31V7h12v24M7 11h12M28 31V7h1
 const mine = B('coal-mine', `<circle cx="14" cy="21" r="10" fill="currentColor" fill-opacity=".25"/><circle cx="14" cy="21" r="6" fill="${CERAMIC}"/><path d="M14 11v20M4 21h20M7 14l14 14M7 28l14-14"/>${poly([[19, 22], [36, 12], [40, 17], [22, 28]], 'currentColor')}<path d="M20 22l17-8" stroke="${ORANGE}"/>${isoBox(38, 14, 4, 6, 5)}`);
 const plant = B('coal-plant', `${isoBox(18, 24, 10, 9, 14)}<path d="M31 30V5h7v25M30 10h9M30 17h9" fill="${CERAMIC}"/><path d="M33 3h5M12 24h12v6H12Z" fill="${ORANGE}"/><path d="M4 32h40"/>`);
 
+const oilWell = B('oil-well', `<path d="M5 30h38M10 30l7-22 7 22M14 20h7M19 16l18-5M36 11v16M32 30h10V16h-7v14" fill="${CERAMIC}"/><path d="M17 8l7-4 13 4" stroke="${ORANGE}"/>`);
+const freightTrain = U('freight-train', `${isoBox(11, 22, 7, 5, 6)}${isoBox(25, 22, 7, 5, 6)}${isoBox(36, 21, 5, 6, 8)}<path d="M5 30h38M18 20h4M31 20h4" stroke="${ORANGE}"/>`);
+
 export const ICON_B_REPAIR = repair;
-export const BUILDING_ICONS: readonly string[] = [hub, solar, refinery, fuel, lab, pad, dock, relay, turret, flak, bulwark, hangar, radar, repair, mine, plant];
+export const BUILDING_ICONS: readonly string[] = [hub, solar, refinery, fuel, lab, pad, dock, relay, turret, flak, bulwark, hangar, radar, repair, mine, plant, oilWell];
 export const UNIT_ICONS: readonly string[] = [
   U('raider', `${poly([[24, 5], [38, 24], [24, 20], [10, 24]], CERAMIC)}<path d="M24 20v9M14 30h20M18 15l6-5 6 5" stroke="${FUNCTION}"/>`),
   U('siege-walker', `${isoBox(24, 17, 9, 8, 8)}<path d="M15 23l-5 10m23-10 5 10M10 33h9m10 0h9M27 15l16-6" stroke="${CERAMIC}" stroke-width="3"/><path d="M14 18h20" stroke="${ORANGE}"/>`),
@@ -29,5 +32,5 @@ export const UNIT_ICONS: readonly string[] = [
   U('interceptor', `${poly([[24, 3], [30, 16], [45, 25], [28, 23], [24, 30], [20, 23], [3, 25], [18, 16]], CERAMIC)}<path d="M24 8v14M17 23h14" stroke="${FUNCTION}"/>`),
   U('hauler', `${isoBox(20, 20, 9, 9, 10)}${isoBox(34, 23, 5, 6, 6)}<ellipse cx="14" cy="30" rx="4" ry="2"/><ellipse cx="29" cy="31" rx="4" ry="2"/><ellipse cx="39" cy="28" rx="4" ry="2"/><path d="M7 33h34" stroke="${ORANGE}"/>`),
   U('warship', `${poly([[3, 20], [31, 9], [44, 15], [29, 27], [9, 28]], CERAMIC)}<path d="M18 17l11-9 7 4-10 9M19 23l-5 8m14-11-3 11" fill="${FUNCTION}"/><path d="M8 23h24" stroke="${ORANGE}"/>`),
-  U('survey-drone', `<path d="M12 12l24 14M12 26l24-14"/><ellipse cx="9" cy="10" rx="7" ry="3" fill="${CERAMIC}"/><ellipse cx="39" cy="10" rx="7" ry="3" fill="${CERAMIC}"/><ellipse cx="9" cy="28" rx="7" ry="3" fill="${CERAMIC}"/><ellipse cx="39" cy="28" rx="7" ry="3" fill="${CERAMIC}"/>${isoBox(24, 20, 5, 5, 5)}<path d="M24 18v6" stroke="${FUNCTION}"/>`),
+  U('survey-drone', `<path d="M12 12l24 14M12 26l24-14"/><ellipse cx="9" cy="10" rx="7" ry="3" fill="${CERAMIC}"/><ellipse cx="39" cy="10" rx="7" ry="3" fill="${CERAMIC}"/><ellipse cx="9" cy="28" rx="7" ry="3" fill="${CERAMIC}"/><ellipse cx="39" cy="28" rx="7" ry="3" fill="${CERAMIC}"/>${isoBox(24, 20, 5, 5, 5)}<path d="M24 18v6" stroke="${FUNCTION}"/>`),  freightTrain,
 ];

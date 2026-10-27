@@ -131,6 +131,7 @@ fn every_home_holds_ore_and_coal_within_500_tiles() {
     const RADIUS: i32 = 500;
     for seed in [SEED, SEED ^ 0x00C0_FFEE, 0xDEAD_BEEF] {
         let home = mapgen::find_home(seed);
+        let oil_home = mapgen::oil_site(seed, home);
         let (mut ore, mut coal) = (None, None);
         'rings: for r in 0..=RADIUS {
             for dy in -r..=r {
@@ -142,7 +143,7 @@ fn every_home_holds_ore_and_coal_within_500_tiles() {
                     }
                     let x = torus::wrap_x(home.0 + dx);
                     let y = torus::wrap_y(home.1 + dy);
-                    let tile = mapgen::tile(seed, home, x, y);
+                    let tile = mapgen::tile(seed, home, oil_home, x, y);
                     if ore.is_none() && tile.deposit > 0 {
                         ore = Some((dx, dy));
                     }

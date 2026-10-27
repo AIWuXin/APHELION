@@ -206,6 +206,27 @@ pub fn step_xy(x: &mut i32, y: &mut i32, tx: i32, ty: i32, step: i32) {
     *y += ((i64::from(dy) * i64::from(step)) / denom) as i32;
 }
 
+/// Freight-only movement over the shortest toroidal path. Existing combat
+/// movement keeps its original semantics; the new supply lines handle seams.
+pub fn step_torus(x: &mut i32, y: &mut i32, tx: i32, ty: i32, step: i32) -> bool {
+    let dx = wrapped_delta(tx, *x, oc_iso::grid::MAP_W * FP);
+    let dy = wrapped_delta(ty, *y, oc_iso::grid::MAP_H * FP);
+    if dx.abs() <= step && dy.abs() <= step {
+        *x = tx;
+        *y = ty;
+        return true;
+    }
+    let dist = oc_iso::fixed::isqrt(dist2(0, 0, dx, dy) as u32).max(1) as i64;
+    let denom = dist * i64::from(FP);
+    *x = oc_iso::torus::wrap_fp_x(*x + ((i64::from(dx) * i64::from(step)) / denom) as i32);
+    *y = oc_iso::torus::wrap_fp_y(*y + ((i64::from(dy) * i64::from(step)) / denom) as i32);
+    false
+}
+
+fn wrapped_delta(target: i32, current: i32, span: i32) -> i32 {
+    oc_iso::torus::rem_euclid(target - current + span / 2, span) - span / 2
+}
+
 /// Facing octant from a direction vector.
 #[must_use]
 pub fn facing_from(dx: i32, dy: i32) -> u8 {

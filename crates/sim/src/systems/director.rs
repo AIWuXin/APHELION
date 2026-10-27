@@ -238,6 +238,7 @@ fn deploy_raiders(world: &mut World, tx: i32, ty: i32) {
             target: 0,
             cooldown: 0,
             home: 0,
+            cargo: 0,
         });
     }
 }

@@ -34,6 +34,7 @@ function building(kind: number, tx: number, ty: number): BuildingView {
     hp_max: 100,
     state: 0,
     progress: 0,
+    production_milli: 0,
     charge: 0,
     flags: 0,
     aux: 0,

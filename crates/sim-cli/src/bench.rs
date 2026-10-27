@@ -102,16 +102,17 @@ impl Stats {
 /// Time one chunk generation pass over [`sample_chunks`].
 fn bench_chunks() -> Stats {
     let home = mapgen::find_home(SEED);
+    let oil_home = mapgen::oil_site(SEED, home);
     let chunks = sample_chunks();
     // Warm-up: the first chunks pay for cold instruction/data caches, which is
     // not what a streaming camera sees.
     for &(cx, cy) in chunks.iter().take(16) {
-        std::hint::black_box(mapgen::chunk(SEED, home, cx, cy));
+        std::hint::black_box(mapgen::chunk(SEED, home, oil_home, cx, cy));
     }
     let mut micros = Vec::with_capacity(chunks.len());
     for &(cx, cy) in &chunks {
         let started = Instant::now();
-        let chunk = mapgen::chunk(SEED, home, cx, cy);
+        let chunk = mapgen::chunk(SEED, home, oil_home, cx, cy);
         micros.push(started.elapsed().as_secs_f64() * 1e6);
         std::hint::black_box(chunk);
     }

@@ -56,22 +56,19 @@ pub fn play(seed: u32, ticks: u32) -> (World, u32) {
     // script the whole campaign progression.
     world.set_era(4);
     let mut queue: Vec<u8> = vec![
-        // Opening: power, ore, one ground gun -- then the orbital/logistics
-        // chain, which is what turns the colony from a static base into an
-        // economy. The T1 coal loop follows right after: a solar array is only a
-        // trickle now, so a thermal plant takes over the base load. The extra
-        // solar arrays keep the grid afloat until the first plant is burning.
+        // Establish coal power and air/ground defence before expanding. The
+        // petroleum chain still precedes the pad, whose construction needs fuel.
         b::B_SOLAR,
         b::B_REFINERY,
         b::B_TURRET,
-        b::B_PAD,
-        b::B_DOCK,
-        b::B_FUEL,
-        b::B_SOLAR,
         b::B_COAL_MINE,
         b::B_COAL_PLANT,
         b::B_FLAK,
         b::B_TURRET,
+        b::B_OIL_WELL,
+        b::B_FUEL,
+        b::B_PAD,
+        b::B_DOCK,
         b::B_HANGAR,
         b::B_SOLAR,
         b::B_REFINERY,
@@ -247,16 +244,21 @@ fn try_build(world: &mut World, queue: &mut Vec<u8>) {
 /// or no legal ground), in which case the caller drops it. Affordability is
 /// checked by the caller.
 ///
-/// Most kinds are ranked by distance to the colony. A coal extractor is ranked
-/// by seam richness first: the guaranteed seam can be a few tiles further than
-/// a thin random cluster, and a starved thermal plant would brick the scripted
-/// economy for the rest of the run.
+/// Resource extractors are ranked by seam richness first. Other kinds use the
+/// nearest legal tile. Oil uses its regional anchor rather than scanning an
+/// empty patch of colony ground.
 fn find_place(world: &World, kind: u8) -> Option<(i32, i32)> {
     let size = i32::from(World::def(kind).footprint);
-    let (cx, cy) = world.map.start;
+    let oil = kind == b::B_OIL_WELL;
+    let (cx, cy) = if oil {
+        world.map.oil_home
+    } else {
+        world.map.start
+    };
+    let radius = if oil { 12 } else { PLACE_SCAN_RADIUS };
     let mut best: Option<(i64, i64, i32, i32)> = None;
-    for dy in -PLACE_SCAN_RADIUS..=PLACE_SCAN_RADIUS {
-        for dx in -PLACE_SCAN_RADIUS..=PLACE_SCAN_RADIUS {
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
             let tx = oc_iso::torus::wrap_x(cx + dx);
             let ty = oc_iso::torus::wrap_y(cy + dy);
             let query = world.query_place(kind, tx, ty);
@@ -265,6 +267,8 @@ fn find_place(world: &World, kind: u8) -> Option<(i32, i32)> {
             }
             let rank = if kind == b::B_COAL_MINE {
                 -i64::from(world.map.footprint_coal(tx, ty, size))
+            } else if oil {
+                -i64::from(world.map.footprint_oil(tx, ty, size))
             } else {
                 0
             };

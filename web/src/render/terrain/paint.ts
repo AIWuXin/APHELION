@@ -90,7 +90,7 @@ export class TilePainter {
     const texture = this.tables.textures[tile.material];
     if (texture) texture(info);
     // A seam or vein owns the whole tile: no competing ground marks under it.
-    const bare = tile.decor === 0 && tile.ore === 0 && tile.coal === 0;
+    const bare = tile.decor === 0 && tile.ore === 0 && tile.coal === 0 && tile.oil === 0;
     if (bare) paintGroundMark(info);
     this.dither(ctx, info, tile.material);
     ctx.restore();
@@ -117,8 +117,10 @@ export class TilePainter {
     if (!info) return;
     if (tile.source === SURFACE_INDEX.crystal) paintCrystalClusters(info);
     const golden = rand01(tx, ty, 0xb7) > 0.74;
-    if (tile.decor > 0) paintDecorTile(info, tile.decor, tile.ore, golden, tile.coal);
-    else if (tile.ore > 0 || tile.coal > 0) paintDecorTile(info, 0, tile.ore, golden, tile.coal);
+    if (tile.decor > 0) paintDecorTile(info, tile.decor, tile.ore, golden, tile.coal, tile.oil);
+    else if (tile.ore > 0 || tile.coal > 0 || tile.oil > 0) {
+      paintDecorTile(info, 0, tile.ore, golden, tile.coal, tile.oil);
+    }
   }
 
   // ------------------------------------------------------------------ helpers

@@ -43,8 +43,10 @@ pub const U_HAULER: u8 = 4;
 pub const U_WARSHIP: u8 = 5;
 /// Player survey drone (cosmetic + radar range).
 pub const U_DRONE: u8 = 6;
+/// Player ground freight train (oil well to command hub).
+pub const U_FREIGHT_TRAIN: u8 = 7;
 /// Number of unit kinds.
-pub const U_COUNT: u8 = 7;
+pub const U_COUNT: u8 = 8;
 
 /// The table.
 pub static UNITS: &[UnitRow] = &[
@@ -124,6 +126,17 @@ pub static UNITS: &[UnitRow] = &[
         range: 0,
         cooldown_ms: 0,
         layer: LAYER_AIR,
+    },
+    UnitRow {
+        key: "freight-train",
+        zh: "货运列车",
+        en: "FREIGHT TRAIN",
+        hp: 120,
+        speed: 48,
+        damage: 0,
+        range: 0,
+        cooldown_ms: 0,
+        layer: LAYER_GROUND,
     },
 ];
 

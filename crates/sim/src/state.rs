@@ -38,6 +38,8 @@ pub struct Map {
     pub seed: u32,
     /// Colony anchor tile (north-west corner of the hub footprint).
     pub start: (i32, i32),
+    /// Guided regional oilfield anchor, outside the opening build grid.
+    pub oil_home: (i32, i32),
     /// Building id occupying a tile (`0`/absent = free), sparse.
     pub occupied: BTreeMap<u32, u32>,
     /// Resident chunk cache, generated on demand.
@@ -45,16 +47,17 @@ pub struct Map {
 }
 
 impl Map {
-    /// Allocate the planet surface for a seed and its colony anchor.
+    /// Allocate the planet surface for a seed and its colony/oil anchors.
     #[must_use]
-    pub fn new(seed: u32, start: (i32, i32)) -> Self {
+    pub fn new(seed: u32, start: (i32, i32), oil_home: (i32, i32)) -> Self {
         Self {
             w: oc_iso::grid::MAP_W,
             h: oc_iso::grid::MAP_H,
             seed,
             start,
+            oil_home,
             occupied: BTreeMap::new(),
-            cache: RefCell::new(ChunkCache::new(seed, start)),
+            cache: RefCell::new(ChunkCache::new(seed, start, oil_home)),
         }
     }
 
@@ -92,6 +95,12 @@ impl Map {
     #[must_use]
     pub fn coal_at(&self, x: i32, y: i32) -> u8 {
         self.tile(x, y).coal
+    }
+
+    /// Oil reservoir richness at a tile.
+    #[must_use]
+    pub fn oil_at(&self, x: i32, y: i32) -> u8 {
+        self.tile(x, y).oil
     }
 
     /// Building id owning a tile, or `0` when free.
@@ -148,6 +157,14 @@ impl Map {
             .sum()
     }
 
+    /// Total oil reservoir richness under a footprint (well efficiency input).
+    #[must_use]
+    pub fn footprint_oil(&self, tx: i32, ty: i32, size: i32) -> i32 {
+        torus::footprint(tx, ty, size)
+            .map(|(x, y)| i32::from(self.tile(x, y).oil))
+            .sum()
+    }
+
     /// Wire view of one chunk (generating it if needed). Coordinates wrap.
     #[must_use]
     pub fn chunk_view(&self, cx: i32, cy: i32) -> ChunkView {
@@ -191,8 +208,10 @@ pub struct Building {
     pub charge: u16,
     /// Bit flags reported to the client.
     pub flags: u8,
-    /// Queue length, target id or other role data.
+    /// Queue length, target id or local oil stock.
     pub aux: u32,
+    /// Fractional local production, committed to stock at 1000 milli-units.
+    pub production_milli: u32,
 }
 
 /// A ground or low-air unit.
@@ -226,8 +245,10 @@ pub struct Unit {
     pub target: u32,
     /// Milliseconds until the next shot.
     pub cooldown: u32,
-    /// Home hangar id for player interceptors, `0` for field units.
+    /// Home hangar or oil well id, `0` for field units.
     pub home: u32,
+    /// Crude oil currently carried by a freight train.
+    pub cargo: u32,
 }
 
 /// An orbital contact.
@@ -346,6 +367,8 @@ pub struct Res {
     pub research: i32,
     /// Coal stockpile.
     pub coal: i32,
+    /// Delivered crude oil stockpile.
+    pub oil: i32,
     /// Alloy accumulator in milli-units.
     pub a_alloy: i32,
     /// Fuel accumulator in milli-units.
@@ -354,4 +377,6 @@ pub struct Res {
     pub a_research: i32,
     /// Coal accumulator in milli-units.
     pub a_coal: i32,
+    /// Crude oil accumulator in milli-units.
+    pub a_oil: i32,
 }

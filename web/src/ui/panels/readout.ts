@@ -6,7 +6,7 @@
  * row -- it gives its height back to the fabricator when nothing is selected.
  */
 
-import { BUILDING_KEYS } from '../../generated/content-keys';
+import { BUILDING_KEYS, UNIT_KEYS } from '../../generated/content-keys';
 import type { BuildingDef } from '../../generated/BuildingDef';
 import type { BuildingView } from '../../generated/BuildingView';
 import type { UnitDef } from '../../generated/UnitDef';
@@ -18,6 +18,8 @@ import { createPanel } from '../panel';
 
 const HUB = BUILDING_KEYS.indexOf('command-hub');
 const PAD = BUILDING_KEYS.indexOf('launch-pad');
+const OIL_WELL = BUILDING_KEYS.indexOf('oil-well');
+const FREIGHT_TRAIN = UNIT_KEYS.indexOf('freight-train');
 
 const B_STATE = ['建造中', '待机', '运转', '缺料'] as const;
 const U_STATE = ['待命', '机动', '交战', '损毁', '驻留'] as const;
@@ -119,7 +121,8 @@ export class ReadoutPanel {
 
     const energy = def?.energy ?? 0;
     const unpowered = (building.flags & 1) === 0 && energy < 0;
-    setText(this.info, unpowered ? `${signed(energy)} 能源 · 断电` : `${signed(energy)} 能源`);
+    const stock = building.kind === OIL_WELL ? `库存 ${building.aux}/60 · ` : '';
+    setText(this.info, `${stock}${unpowered ? `${signed(energy)} 能源 · 断电` : `${signed(energy)} 能源`}`);
     setClass(this.info, 'is-danger', unpowered);
     setTitle(this.art, def ? this.buildingTitle(def) : '');
 
@@ -141,7 +144,10 @@ export class ReadoutPanel {
     setClass(this.state, 'is-busy', unit.state === 2);
     setClass(this.state, 'is-danger', unit.owner === 1);
     const hostile = unit.owner === 1;
-    setText(this.info, hostile ? '敌方 · HOSTILE' : '友军 · FRIENDLY');
+    const cargo = unit.kind === FREIGHT_TRAIN
+      ? unit.cargo > 0 ? `原油 ${unit.cargo}/30 · 在途` : '空车 · 友军'
+      : null;
+    setText(this.info, cargo ?? (hostile ? '敌方 · HOSTILE' : '友军 · FRIENDLY'));
     setClass(this.info, 'is-danger', hostile);
     setTitle(this.art, def ? `${def.name_zh} · 射程 ${def.range} · 伤害 ${def.damage} · 冷却 ${def.cooldown_ms}ms` : '');
     setDisabled(this.launch, true);

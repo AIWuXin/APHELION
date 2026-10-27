@@ -3,6 +3,7 @@ import type { BuildingArt } from '../sprite-contract';
 import { BULWARK_ART, FLAK_ART, RELAY_ART, REPAIR_ART, TURRET_ART } from './buildings/defence';
 import { HQ_ART } from './buildings/hq';
 import { COAL_MINE_ART, COAL_PLANT_ART } from './buildings/industry';
+import { OIL_WELL_ART } from './buildings/oil';
 import { DOCK_ART, HANGAR_ART, LAUNCH_ART, RADAR_ART } from './buildings/orbital';
 import { REFINERY_ART } from './buildings/refinery';
 import { FUEL_ART, LAB_ART, SOLAR_ART } from './buildings/structures';
@@ -24,4 +25,5 @@ export const BUILDING_ART = {
   'repair-bay': REPAIR_ART,
   'coal-mine': COAL_MINE_ART,
   'coal-plant': COAL_PLANT_ART,
+  'oil-well': OIL_WELL_ART,
 } as const satisfies Readonly<Record<BuildingKey, BuildingArt>>;

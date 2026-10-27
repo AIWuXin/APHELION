@@ -13,9 +13,13 @@ use oc_content::terrain::{
 
 use super::noise;
 
-/// Decoration for one finished tile (skipped on roads, aprons, water, seams).
-pub fn decor_for(seed: u32, x: i32, y: i32, material: u8, deposit: u8, coal: u8) -> u8 {
-    if matches!(material, T_ROAD | T_APRON | T_DEEP | T_SHALLOW) || deposit > 0 || coal > 0 {
+/// Decoration for one finished tile (skipped on roads, aprons, water, resources).
+pub fn decor_for(seed: u32, x: i32, y: i32, material: u8, deposit: u8, coal: u8, oil: u8) -> u8 {
+    if matches!(material, T_ROAD | T_APRON | T_DEEP | T_SHALLOW)
+        || deposit > 0
+        || coal > 0
+        || oil > 0
+    {
         return D_NONE;
     }
     let r = noise::hash2(seed ^ 0x7777_1111, x, y) % 1000;

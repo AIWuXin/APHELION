@@ -35,6 +35,15 @@ fn cull_units(world: &mut World) {
         }
         let u = world.units.remove(i);
         world.effect(EFFECT_EXPLODE, u.x, u.y, u.z, 16, 0);
+        if u.kind == oc_content::units::U_FREIGHT_TRAIN {
+            world.event(
+                oc_protocol::EVENT_FREIGHT,
+                u.cargo,
+                0,
+                (u.x / FP) as i16,
+                (u.y / FP) as i16,
+            );
+        }
         if u.owner == 1 {
             killed += 1;
             if first.is_none() {

@@ -2,7 +2,7 @@
 //!
 //! The build stage also owns the two support-system passes: repair-bay healing
 //! and hangar interceptor production. They live here (not in Combat) so the
-//! order stays "economy -> build -> launch -> logistics -> combat -> director".
+//! order stays "economy -> build -> launch -> logistics -> combat -> director -> era".
 
 use oc_content::buildings;
 use oc_protocol::{B_STATE_IDLE, B_STATE_SITE, EVENT_BUILD_DONE};

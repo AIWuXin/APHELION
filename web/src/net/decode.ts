@@ -41,6 +41,8 @@ export function decodeResources(r: Reader): Resources {
     energy_in: r.i32(),
     coal: r.i32(),
     coal_rate: r.i32(),
+    oil: r.i32(),
+    oil_rate: r.i32(),
   };
 }
 
@@ -101,6 +103,7 @@ export function decodeBuildingView(r: Reader): BuildingView {
     charge: r.u32(),
     flags: r.u8(),
     aux: r.u32(),
+    production_milli: r.u32(),
   };
 }
 
@@ -117,6 +120,8 @@ export function decodeUnitView(r: Reader): UnitView {
     facing: r.u8(),
     owner: r.u8(),
     target: r.u32(),
+    home: r.u32(),
+    cargo: r.u32(),
   };
 }
 
@@ -272,7 +277,7 @@ export function decodeCatalog(r: Reader): Catalog {
 }
 
 export function decodeMapView(r: Reader): MapView {
-  // Protocol 2: the planet is no longer shipped as tile arrays. `u16` fields
+  // Protocol 3: the planet streams as chunks; boot carries both resource anchors.
   // are postcard varints, so the `u32` reader covers them.
   return {
     seed: r.u32(),
@@ -281,10 +286,12 @@ export function decodeMapView(r: Reader): MapView {
     chunk_size: r.u32(),
     start_tx: r.u32(),
     start_ty: r.u32(),
+    oil_tx: r.u32(),
+    oil_ty: r.u32(),
   };
 }
 
-/** One 32x32 chunk, row-major, five `chunk_size^2` arrays. */
+/** One 32x32 chunk, row-major, six `chunk_size^2` arrays. */
 export function decodeChunkView(r: Reader): ChunkView {
   const cx = r.i32();
   const cy = r.i32();
@@ -303,7 +310,10 @@ export function decodeChunkView(r: Reader): ChunkView {
   const coalCount = r.len();
   const coal = new Array<number>(coalCount);
   for (let i = 0; i < coalCount; i += 1) coal[i] = r.u8();
-  return { cx, cy, terrain, decor, elev, ore, coal };
+  const oilCount = r.len();
+  const oil = new Array<number>(oilCount);
+  for (let i = 0; i < oilCount; i += 1) oil[i] = r.u8();
+  return { cx, cy, terrain, decor, elev, ore, coal, oil };
 }
 
 export function decodeBootBlob(bytes: ArrayBufferView): BootBlob {

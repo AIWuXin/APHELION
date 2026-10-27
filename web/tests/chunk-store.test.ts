@@ -28,6 +28,8 @@ const MAP: MapView = {
   chunk_size: EDGE,
   start_tx: EDGE,
   start_ty: EDGE,
+  oil_tx: EDGE,
+  oil_ty: EDGE,
 };
 
 /** Centre chunk is basalt (companion: regolith); every neighbour is road. */
@@ -42,6 +44,7 @@ function viewOf(cx: number, cy: number): ChunkView {
     elev: new Array<number>(EDGE * EDGE).fill(0),
     ore: new Array<number>(EDGE * EDGE).fill(0),
     coal: new Array<number>(EDGE * EDGE).fill(0),
+    oil: new Array<number>(EDGE * EDGE).fill(0),
   };
 }
 

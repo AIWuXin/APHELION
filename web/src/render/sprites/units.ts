@@ -203,6 +203,30 @@ const paintHauler: UnitPainter = (env, cx, cy) => {
   ctx.fillRect(Math.round(cx - 11), Math.round(cy + 1), 3, 1);
 };
 
+/** Petroleum freight: a powered cab and two cylindrical tank cars. */
+const paintFreightTrain: UnitPainter = (env, cx, cy, view) => {
+  const { ctx, time } = env;
+  const directions = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]] as const;
+  const [fx, fy] = directions[view.facing ?? 0] ?? directions[0];
+  const loaded = (view.cargo ?? 0) > 0;
+  seat(ctx, cx, cy, 19);
+  for (const offset of [-10, 4]) {
+    const x = cx + fx * offset;
+    const y = cy + fy * offset * 0.5 - 5;
+    outlinedBox(ctx, x, y, 8, 4.5, 6, loaded ? HULL.mid : HULL.dark);
+    outlinedLine(ctx, x - fx * 4, y - fy * 2, x + fx * 4, y + fy * 2, 1, loaded ? GLOW.function : HULL.mid);
+  }
+  const cabX = cx + fx * 16;
+  const cabY = cy + fy * 8 - 7;
+  outlinedBox(ctx, cabX, cabY, 6, 4.5, 8, HULL.plate);
+  outlinedLine(ctx, cabX - fx * 3, cabY - 2, cabX + fx * 3, cabY + 2, 2, GLOW.primary);
+  for (const offset of [-13, -4, 5, 14]) {
+    const bounce = view.state === 1 ? Math.round(Math.sin(time / 90 + offset)) : 0;
+    ctx.fillStyle = HULL.recess;
+    ctx.fillRect(Math.round(cx + fx * offset - 2), Math.round(cy + fy * offset * 0.5 + 2 + bounce), 4, 2);
+  }
+};
+
 /** Long hostile orbital hull with red lights and turret bumps. */
 const paintWarship: UnitPainter = (env, cx, cy) => {
   const { ctx } = env;
@@ -252,6 +276,7 @@ export const UNIT_PAINTERS: Readonly<Record<UnitKey, UnitPainter>> = {
   hauler: paintHauler,
   warship: paintWarship,
   'survey-drone': paintDrone,
+  'freight-train': paintFreightTrain,
 };
 
 /** Orbital craft reuse the same painters, anchored above the surface. */
@@ -263,4 +288,5 @@ export const SHIP_PAINTERS: Readonly<Record<UnitKey, ShipPainter>> = {
   hauler: paintHauler,
   warship: paintWarship,
   'survey-drone': paintDrone,
+  'freight-train': paintFreightTrain,
 };

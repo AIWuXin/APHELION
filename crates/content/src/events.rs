@@ -107,6 +107,18 @@ pub static EVENTS: &[EventRow] = &[
         speaker: "TACTICAL",
         tone: TONE_DANGER,
     },
+    EventRow {
+        key: "era",
+        text_zh: "工业时代推进至 T{a}，新的建造序列已开放",
+        speaker: "COMMAND",
+        tone: TONE_GOOD,
+    },
+    EventRow {
+        key: "freight",
+        text_zh: "货运列车损毁，损失原油 {a}，油井等待补班",
+        speaker: "LOGISTICS",
+        tone: TONE_DANGER,
+    },
 ];
 
 /// Convert a row to the wire definition.

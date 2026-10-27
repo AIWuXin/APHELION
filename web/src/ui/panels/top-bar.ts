@@ -22,12 +22,15 @@ import {
   ICON_PAUSE,
   ICON_PLAY,
   ICON_RESEARCH,
+  ICON_OIL,
 } from '../icons';
 
 const PAD = BUILDING_KEYS.indexOf('launch-pad');
 const RADAR = BUILDING_KEYS.indexOf('radar-array');
 const COAL_MINE = BUILDING_KEYS.indexOf('coal-mine');
 const COAL_PLANT = BUILDING_KEYS.indexOf('coal-plant');
+const OIL_WELL = BUILDING_KEYS.indexOf('oil-well');
+const FUEL_SYNTH = BUILDING_KEYS.indexOf('fuel-synth');
 
 /** Speeds published as `snapshot.speed` indices 1..3 (0 = paused). */
 const SPEEDS: readonly (readonly [number, string])[] = [
@@ -42,6 +45,7 @@ export class TopBar {
 
   private readonly led: HTMLElement;
   private readonly ledText: HTMLElement;
+  private readonly era: HTMLElement;
   private readonly clock: HTMLElement;
   private readonly allow: HTMLElement;
   private readonly alloyDelta: HTMLElement;
@@ -57,6 +61,9 @@ export class TopBar {
   private readonly researchItem: HTMLElement;
   private readonly coal: HTMLElement;
   private readonly coalDelta: HTMLElement;
+  private readonly oil: HTMLElement;
+  private readonly oilDelta: HTMLElement;
+  private readonly oilItem: HTMLElement;
   private readonly hint: HTMLElement;
   private readonly pause: HTMLButtonElement;
   private readonly pauseIcon: HTMLElement;
@@ -68,6 +75,7 @@ export class TopBar {
   public constructor(private readonly actions: HudActions) {
     this.ledText = h('span', { text: '在线' });
     this.led = h('div', { class: 'oc-led' }, [h('i'), this.ledText]);
+    this.era = h('span', { class: 'oc-topbar__label', text: 'T1' });
     this.clock = h('b', { class: 'oc-num', text: '00:00:00' });
 
     this.allow = h('b', { class: 'oc-res__value', text: '0' });
@@ -97,6 +105,10 @@ export class TopBar {
     this.coal = h('b', { class: 'oc-res__value', text: '0' });
     this.coalDelta = h('span', { class: 'oc-res__delta', text: '+0' });
     const coal = this.resItem('煤', ICON_COAL, 'oc-res--coal', [this.coal, this.coalDelta]);
+
+    this.oil = h('b', { class: 'oc-res__value', text: '0' });
+    this.oilDelta = h('span', { class: 'oc-res__delta', text: '+0' });
+    this.oilItem = this.resItem('原油', ICON_OIL, 'oc-res--oil', [this.oil, this.oilDelta]);
 
     this.research = h('b', { class: 'oc-res__value', text: '0' });
     this.researchDelta = h('span', { class: 'oc-res__delta', text: '+0' });
@@ -129,6 +141,7 @@ export class TopBar {
     this.element = h('div', { class: 'oc-topbar' }, [
       h('div', { class: 'oc-topbar__cell' }, [this.led]),
       h('div', { class: 'oc-topbar__cell' }, [
+        this.era,
         h('span', { class: 'oc-topbar__label', text: '星历' }),
         this.clock,
       ]),
@@ -136,6 +149,7 @@ export class TopBar {
         alloy,
         this.energy,
         coal,
+        this.oilItem,
         this.fuelItem,
         this.researchItem,
       ]),
@@ -170,6 +184,7 @@ export class TopBar {
               ? '警戒'
               : '在线',
     );
+    setText(this.era, `T${s.era}`);
     setText(this.clock, clockText(s.time_ms));
 
     setText(this.allow, String(r.alloy));
@@ -184,12 +199,14 @@ export class TopBar {
     setText(this.researchDelta, signed(r.research_rate));
     setText(this.coal, String(r.coal));
     setText(this.coalDelta, signed(r.coal_rate));
+    setText(this.oil, String(r.oil));
+    setText(this.oilDelta, signed(r.oil_rate));
 
-    // Era 1 mines coal but cannot make fuel cells or research points yet: an
-    // always-zero readout would read as a broken counter, not as uncharted tech.
+    // Era 1 has no petroleum, fuel cells or research production to display.
     const t1 = s.era <= 1;
     this.fuelItem.hidden = t1;
     this.researchItem.hidden = t1;
+    this.oilItem.hidden = t1;
 
     setText(this.hint, this.hintFor(view));
 
@@ -239,8 +256,12 @@ export class TopBar {
       if (!has(COAL_PLANT)) return '建造火电站 · 补足晨昏线电力缺口';
       return '左键 建造 · 右键 取消 · 空格 暂停 · F3 沙盒';
     }
+    if (s.era === 2) {
+      if (!has(OIL_WELL)) return '勘探油田 · 建造油井并接通货运';
+      if (!has(FUEL_SYNTH)) return '建造燃料合成站 · 将原油转为火箭燃料';
+    }
     if (!has(RADAR)) return '缺少搜索阵列 · 敌袭倒计时不可见';
-    if (!has(PAD)) return '建造发射台才能进入轨道';
+    if (s.era >= 3 && !has(PAD)) return '建造发射台才能进入轨道';
     return '左键 建造 · 右键 取消 · 空格 暂停 · F3 沙盒';
   }
 }

@@ -18,12 +18,12 @@ use oc_iso::torus::{rem_euclid, CHUNK};
 use super::noise;
 use super::{
     COAL_FIELD_FREQ, COAL_SCATTER_FREQ, CRYSTAL_FREQ, ELEV_CONTINENT_FREQ, ELEV_DETAIL_FREQ,
-    ELEV_HILL_FREQ, HUMIDITY_FINE_FREQ, HUMIDITY_FREQ, ORE_FIELD_FREQ, ORE_SCATTER_FREQ,
-    TEMP_NOISE_FREQ,
+    ELEV_HILL_FREQ, HUMIDITY_FINE_FREQ, HUMIDITY_FREQ, OIL_FIELD_FREQ, ORE_FIELD_FREQ,
+    ORE_SCATTER_FREQ, TEMP_NOISE_FREQ,
 };
 
 /// Frequencies the climate model samples, in axis-table slot order.
-const AXIS_FREQS: [i32; 11] = [
+const AXIS_FREQS: [i32; 12] = [
     ELEV_CONTINENT_FREQ,
     ELEV_HILL_FREQ,
     ELEV_DETAIL_FREQ,
@@ -35,6 +35,7 @@ const AXIS_FREQS: [i32; 11] = [
     COAL_FIELD_FREQ,
     ORE_SCATTER_FREQ,
     COAL_SCATTER_FREQ,
+    OIL_FIELD_FREQ,
 ];
 
 /// Slot of a frequency in [`AXIS_FREQS`].
@@ -57,6 +58,7 @@ fn slot(freq: i32) -> usize {
         COAL_FIELD_FREQ => 8,
         ORE_SCATTER_FREQ => 9,
         COAL_SCATTER_FREQ => 10,
+        OIL_FIELD_FREQ => 11,
         _ => unreachable!("frequency has no axis slot"),
     }
 }

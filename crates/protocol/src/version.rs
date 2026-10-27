@@ -6,7 +6,8 @@
 ///
 /// 2: the planet went chunked -- `MapView` carries dimensions instead of tile
 /// arrays, and terrain arrives as `ChunkView` records from `oc_chunk`.
-pub const PROTOCOL_VERSION: u16 = 2;
+/// 3: crude oil, reservoir streaming, oil-field guidance and freight state.
+pub const PROTOCOL_VERSION: u16 = 3;
 
 /// Human facing product version: shown by the launcher, the debug overlay and
 /// the README. Cargo and npm need the semver form `0.1.0-a2`; this is the display
@@ -25,5 +26,5 @@ pub const MAX_EVENTS: usize = 64;
 /// Build the protocol banner shown in the debug overlay.
 #[must_use]
 pub fn banner() -> &'static str {
-    "APHELION 0.1.0a2 :: sim/proto-2"
+    "APHELION 0.1.0a2 :: sim/proto-3"
 }

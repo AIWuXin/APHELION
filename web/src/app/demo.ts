@@ -29,6 +29,8 @@ export interface DemoApi {
   readonly buildings: readonly BuildingDef[];
   /** Colony anchor tile from the boot blob; the build spiral walks out from it. */
   readonly anchor: { readonly tx: number; readonly ty: number };
+  /** Regional oilfield anchor from the same boot blob. */
+  readonly oilAnchor: { readonly tx: number; readonly ty: number };
 }
 
 /** Building table indices used by the script (mirrors `oc-content`). */
@@ -48,16 +50,21 @@ const K = {
   repair: 13,
   coalMine: 14,
   coalPlant: 15,
+  oilWell: 16,
 } as const;
 
-/** Find the first legal anchor near the colony for a building kind. */
-function findSpot(api: DemoApi, kind: number, fromRing = 3): { tx: number; ty: number } | null {
+/** Find the first legal anchor around a colony or a resource anchor. */
+function findSpot(
+  api: DemoApi,
+  kind: number,
+  fromRing = 3,
+  centre = api.anchor,
+): { tx: number; ty: number } | null {
   const snap = api.snapshot();
   if (!snap) return null;
-  // Spiral out from the colony anchor the boot blob reported, not from a fixed
-  // tile: the home tile is found by the kernel's spiral and moves with the seed.
-  const cx = api.anchor.tx;
-  const cy = api.anchor.ty;
+  // Spiral out from the authoritative anchor, not from a hard-coded home tile.
+  const cx = centre.tx;
+  const cy = centre.ty;
   for (let ring = fromRing; ring < 14; ring += 1) {
     for (let dy = -ring; dy <= ring; dy += 1) {
       for (let dx = -ring; dx <= ring; dx += 1) {
@@ -72,96 +79,91 @@ function findSpot(api: DemoApi, kind: number, fromRing = 3): { tx: number; ty: n
   return null;
 }
 
-/** A queued construction step with a delay in ms from the previous step. */
-interface Step {
-  readonly after: number;
-  readonly run: (api: DemoApi) => void;
-}
-
-/** The full build order; steps above the current era are skipped at run time. */
+/** Ordered construction requests; later eras wait instead of being skipped. */
 const ORDER: readonly (readonly [number, number])[] = [
-  [K.solar, 0],
-  [K.solar, 220],
-  [K.turret, 380],
-  [K.refinery, 520],
-  [K.coalMine, 300],
-  [K.coalPlant, 300],
-  [K.fuel, 760],
-  [K.dock, 980],
-  [K.pad, 1100],
-  [K.lab, 1320],
-  [K.flak, 1500],
-  [K.turret, 1640],
-  [K.hangar, 1800],
-  [K.radar, 2000],
-  [K.relay, 2160],
-  [K.repair, 2300],
+  [K.solar, 2],
+  [K.turret, 2],
+  [K.refinery, 1],
+  [K.coalMine, 1],
+  [K.coalPlant, 1],
+  [K.oilWell, 1],
+  [K.fuel, 1],
+  [K.flak, 1],
+  [K.lab, 1],
+  [K.radar, 1],
+  [K.bulwark, 2],
+  [K.pad, 1],
+  [K.dock, 1],
+  [K.hangar, 1],
+  [K.relay, 1],
+  [K.repair, 1],
 ];
 
-/** Build the demo script. */
-export function demoScript(): Step[] {
-  const steps: Step[] = [
-    {
-      after: 400,
-      run: (api) => {
-        api.send([{ setSandbox: { flags: 3 } }, { setSpeed: { speed: 2 } }]);
-      },
-    },
-  ];
-  for (const [kind, after] of ORDER) {
-    steps.push({
-      after,
-      run: (api) => {
-        const snap = api.snapshot();
-        // Skipping silently is the point: a refused tier must not spam the log.
-        if (!snap || !eraAllows(api.buildings[kind], snap.era)) return;
-        const spot = findSpot(api, kind);
-        if (spot) api.send([{ place: { kind, tx: spot.tx, ty: spot.ty } }]);
-      },
-    });
-  }
-  // Launch twice once the pads exist, then open two lanes and let them run.
-  steps.push({
-    after: 2600,
-    run: (api) => {
-      const snap = api.snapshot();
-      const pads = snap?.buildings.filter((b) => b.kind === K.pad) ?? [];
-      if (pads.length === 0) return;
-      api.send(pads.map((p) => ({ launch: { id: p.id } })));
-    },
-  });
-  steps.push({
-    after: 8200,
-    run: (api) => {
-      api.send([{ toggleRoute: { route: 0 } }, { toggleRoute: { route: 1 } }]);
-      api.send([{ research: { tech: 0 } }]);
-    },
-  });
-  steps.push({
-    after: 6000,
-    run: (api) => {
-      // ?rush=1 keeps the demo at 4x so the screenshot harness can reach the
-      // first hostile wave (~135 s of sim time) in under a minute of wall clock.
-      const rush = new URLSearchParams(location.search).get('rush') === '1';
-      api.send([{ setSpeed: { speed: rush ? 3 : 1 } }]);
-    },
-  });
-  return steps;
+interface BuildStep {
+  readonly kind: number;
+  remaining: number;
+  sites: { tx: number; ty: number }[];
 }
 
-/** Start the demo; returns a cancel function. */
+/** Start a milestone-driven demo; returns a cancel function. */
 export function startDemo(api: DemoApi): () => void {
-  const timers: number[] = [];
-  let clock = 0;
-  for (const step of demoScript()) {
-    clock += step.after;
-    timers.push(
-      window.setTimeout(() => {
-        step.run(api);
-      }, clock),
-    );
-  }
+  const steps: BuildStep[] = ORDER.map(([kind, count]) => ({ kind, remaining: count, sites: [] }));
+  let started = false;
+  let launches = 0;
+  let routesOpened = false;
+  let nextTech = 0;
+
+  const attempt = (): void => {
+    if (!started) {
+      started = true;
+      const rush = new URLSearchParams(location.search).get('rush') === '1';
+      api.send([{ setSandbox: { flags: 3 } }, { setSpeed: { speed: rush ? 3 : 2 } }]);
+      return;
+    }
+    const snap = api.snapshot();
+    if (!snap) return;
+    for (const step of steps) {
+      step.sites = step.sites.filter((site) => {
+        const present = snap.buildings.some((b) => b.kind === step.kind && b.tx === site.tx && b.ty === site.ty);
+        if (!present) step.remaining += 1;
+        return present;
+      });
+    }
+    if (nextTech < 4 && snap.buildings.some((b) => b.kind === K.lab && b.state !== 0)) {
+      api.send([{ research: { tech: nextTech } }]);
+      nextTech += 1;
+      return;
+    }
+    const next = steps.find((step) => step.remaining > 0 && eraAllows(api.buildings[step.kind], snap.era));
+    if (next) {
+      const oil = next.kind === K.oilWell;
+      const spot = findSpot(api, next.kind, oil ? 0 : 3, oil ? api.oilAnchor : api.anchor);
+      if (spot) {
+        next.remaining -= 1;
+        next.sites.push(spot);
+        api.send([{ place: { kind: next.kind, tx: spot.tx, ty: spot.ty } }]);
+      }
+      return;
+    }
+
+    if (launches < 2) {
+      const pad = snap.buildings.find((b) => b.kind === K.pad && b.state === 1 && b.aux === 0 && b.progress >= 1000);
+      if (pad) {
+        launches += 1;
+        api.send([{ launch: { id: pad.id } }]);
+      }
+      return;
+    }
+    if (!routesOpened && snap.orbital.capacity >= 4) {
+      api.send([{ toggleRoute: { route: 0 } }, { toggleRoute: { route: 1 } }]);
+      routesOpened = true;
+    }
+  };
+
+  const kickoff = window.setTimeout(attempt, 400);
+  const timer = window.setInterval(attempt, 600);
   return () => {
-    for (const id of timers) window.clearTimeout(id);
+    window.clearTimeout(kickoff);
+    window.clearInterval(timer);
   };
 }

@@ -9,6 +9,8 @@ pub mod build;
 pub mod combat;
 pub mod director;
 pub mod economy;
+pub mod era;
+pub mod freight;
 pub mod hangar;
 pub mod launch;
 pub mod logistics;
@@ -93,6 +95,18 @@ impl System for Director {
     }
 }
 
+/// Era milestone stage: normal progression after wave resolution.
+pub struct Era;
+
+impl System for Era {
+    fn name(&self) -> &'static str {
+        "era"
+    }
+    fn update(&mut self, world: &mut World, _dt_ms: u32) {
+        era::update(world);
+    }
+}
+
 /// Run every stage once, in the canonical order.
 pub fn run_all(world: &mut World, dt_ms: u32) {
     Economy.update(world, dt_ms);
@@ -101,11 +115,12 @@ pub fn run_all(world: &mut World, dt_ms: u32) {
     Logistics.update(world, dt_ms);
     Combat.update(world, dt_ms);
     Director.update(world, dt_ms);
+    Era.update(world, dt_ms);
 }
 
 /// Names of the stages in execution order (used by the debug overlay).
 #[must_use]
-pub fn names() -> [&'static str; 6] {
+pub fn names() -> [&'static str; 7] {
     [
         "economy",
         "build",
@@ -113,5 +128,6 @@ pub fn names() -> [&'static str; 6] {
         "logistics",
         "combat",
         "director",
+        "era",
     ]
 }

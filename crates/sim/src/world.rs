@@ -33,6 +33,8 @@ pub const MAX_FUEL: i32 = 9_999;
 pub const MAX_RESEARCH: i32 = 999_999;
 /// Maximum coal.
 pub const MAX_COAL: i32 = 9_999;
+/// Maximum delivered crude oil.
+pub const MAX_OIL: i32 = 9_999;
 
 /// Sandbox flag: infinite resources (`Policy::sandbox_flags` bit 0).
 pub const SANDBOX_INFINITE: u16 = 1;
@@ -115,6 +117,8 @@ pub struct World {
     pub research_rate: i32,
     /// Smoothed rates for the HUD (per minute).
     pub coal_rate: i32,
+    /// Crude oil delivered by freight trains (per minute).
+    pub oil_rate: i32,
     /// Cached encoded snapshot.
     snapshot_buf: Vec<u8>,
     /// Cached encoded boot blob.
@@ -171,6 +175,7 @@ impl World {
             fuel_rate: 0,
             research_rate: 0,
             coal_rate: 0,
+            oil_rate: 0,
             snapshot_buf: Vec::new(),
             boot_buf: Vec::new(),
             last_hash: 0,

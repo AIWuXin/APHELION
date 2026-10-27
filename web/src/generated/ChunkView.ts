@@ -34,4 +34,8 @@ ore: Array<number>,
 /**
  * Coal seam richness, `0` = none. Coal extractors must sit on a seam.
  */
-coal: Array<number>, };
+coal: Array<number>, 
+/**
+ * Oil reservoir richness, `0` = none. Oil wells must sit on a reservoir.
+ */
+oil: Array<number>, };

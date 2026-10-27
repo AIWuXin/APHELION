@@ -59,4 +59,26 @@ impl World {
             false
         }
     }
+
+    /// Deliver crude oil to the colony stockpile.
+    pub fn add_oil(&mut self, amount: i32) {
+        if self.sandbox(SANDBOX_INFINITE) {
+            self.res.oil = self.res.oil.max(balance::SANDBOX_RESOURCE_FLOOR);
+            return;
+        }
+        self.res.oil = (self.res.oil + amount).clamp(0, super::MAX_OIL);
+    }
+
+    /// Spend delivered crude oil if possible.
+    pub fn take_oil(&mut self, amount: i32) -> bool {
+        if self.sandbox(SANDBOX_INFINITE) {
+            return true;
+        }
+        if self.res.oil >= amount {
+            self.res.oil -= amount;
+            true
+        } else {
+            false
+        }
+    }
 }

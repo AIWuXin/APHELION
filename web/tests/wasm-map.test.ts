@@ -78,6 +78,7 @@ describe('wasm chunk / rules agreement', () => {
       expect(chunk.terrain, `chunk ${cx},${cy}`).toHaveLength(map.chunk_size ** 2);
       expect(chunk.elev).toHaveLength(map.chunk_size ** 2);
       expect(chunk.coal).toHaveLength(map.chunk_size ** 2);
+      expect(chunk.oil).toHaveLength(map.chunk_size ** 2);
     }
     // (-1,-1) is the same chunk as (chunks-1, chunks-1): the generator wraps.
     const wrapped = readChunk(world, chunks - 1, chunks - 1);
@@ -85,6 +86,23 @@ describe('wasm chunk / rules agreement', () => {
     expect(before.cx).toBe(wrapped.cx);
     expect(before.cy).toBe(wrapped.cy);
     expect(before.terrain).toEqual(wrapped.terrain);
+  });
+
+  it('streams the guided oilfield reservoir at its boot anchor', async () => {
+    const world = await bootWorld();
+    const { map } = world.boot;
+    let richness = 0;
+    for (let dy = 0; dy < 2; dy += 1) {
+      for (let dx = 0; dx < 2; dx += 1) {
+        const tx = map.oil_tx + dx;
+        const ty = map.oil_ty + dy;
+        const chunk = readChunk(world, Math.floor(tx / map.chunk_size), Math.floor(ty / map.chunk_size));
+        richness += chunk.oil[(ty % map.chunk_size) * map.chunk_size + (tx % map.chunk_size)] ?? 0;
+      }
+    }
+    expect(richness).toBeGreaterThan(0);
+    expect(Math.abs(map.oil_tx - map.start_tx)).toBeLessThanOrEqual(128);
+    expect(Math.abs(map.oil_ty - map.start_ty)).toBeLessThanOrEqual(128);
   });
 
   it('refuses placement on exactly the tiles it streams as unbuildable', async () => {

@@ -59,6 +59,7 @@ fn spawn_raider(world: &mut World, x: i32, y: i32) -> u32 {
         target: 0,
         cooldown: 0,
         home: 0,
+        cargo: 0,
     });
     id
 }

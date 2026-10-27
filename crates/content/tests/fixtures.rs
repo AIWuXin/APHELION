@@ -19,6 +19,8 @@ fn map_meta() -> MapView {
         chunk_size: CHUNK,
         start_tx: 5_122,
         start_ty: 5_126,
+        oil_tx: 5_080,
+        oil_ty: 5_040,
     }
 }
 

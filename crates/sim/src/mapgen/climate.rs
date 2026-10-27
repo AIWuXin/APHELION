@@ -26,6 +26,7 @@ use super::noise;
 
 mod axes;
 mod minerals;
+mod oil;
 
 pub use axes::{Axes, ChunkAxes};
 pub use minerals::{
@@ -34,6 +35,7 @@ pub use minerals::{
     ORE_RICHNESS_SCALE, ORE_SCATTER_FREQ, ORE_SCATTER_THRESHOLD, ORE_THRESHOLD,
     SCATTER_RICHNESS_MAX, SCATTER_RICHNESS_MIN,
 };
+pub use oil::{oil_affinity, OIL_FIELD_FREQ, OIL_RICHNESS_SCALE, OIL_THRESHOLD};
 
 use minerals::minerals_of;
 
@@ -124,6 +126,8 @@ pub struct BaseTile {
     pub deposit: u8,
     /// Coal seam richness, `0` = none.
     pub coal: u8,
+    /// Oil reservoir richness, `0` = none.
+    pub oil: u8,
     /// Elevation field value, `0..=1024`.
     pub elevation: i32,
     /// Temperature field value, `0..=1024`.
@@ -324,11 +328,18 @@ pub fn base_tile_of(axes: &Axes, seed: u32, x: i32, y: i32) -> BaseTile {
     let humidity = humidity_of(axes, seed, x, y, elevation);
     let (material, height) = classify_of(axes, seed, x, y, elevation, temperature, humidity);
     let (deposit, coal) = minerals_of(axes, seed, x, y, material);
+    // T1 minerals keep precedence: adding oil never moves an existing seam.
+    let oil = if deposit == 0 && coal == 0 {
+        oil::oil_of(axes, seed, x, y, material)
+    } else {
+        0
+    };
     BaseTile {
         material,
         height,
         deposit,
         coal,
+        oil,
         elevation,
         temperature,
         humidity,

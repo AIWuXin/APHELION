@@ -46,7 +46,7 @@ describe('era gate on the build rail', () => {
   });
 
   it('unlocks one tier at a time', () => {
-    expect(buildableKinds(defs, CAT_BUILD, 2)).toEqual([1, 2, 3, 4, 14, 15]);
+    expect(buildableKinds(defs, CAT_BUILD, 2)).toEqual([1, 2, 3, 4, 14, 15, 16]);
     expect(buildableKinds(defs, CAT_DEFENCE, 2)).toEqual([8, 9, 10]);
     expect(buildableKinds(defs, CAT_SUPPORT, 2)).toEqual([12, 13]);
     expect(buildableKinds(defs, CAT_ORBITAL, 2)).toEqual([]);

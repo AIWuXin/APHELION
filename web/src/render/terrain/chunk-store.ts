@@ -49,6 +49,8 @@ export interface TileData {
   readonly ore: number;
   /** Coal seam richness. */
   readonly coal: number;
+  /** Oil reservoir richness. */
+  readonly oil: number;
 }
 
 /** Where chunk records come from (`oc_chunk` on the wasm bridge). */
@@ -205,6 +207,7 @@ export class ChunkStore {
       decor: chunk.view.decor[index] ?? 0,
       ore: chunk.view.ore[index] ?? 0,
       coal: chunk.view.coal[index] ?? 0,
+      oil: chunk.view.oil[index] ?? 0,
     };
   }
 

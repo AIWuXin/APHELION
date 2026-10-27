@@ -1,5 +1,5 @@
 {
-  "protocol": 2,
+  "protocol": 3,
   "tick": 300,
   "hash": 3735928559,
   "time_ms": 9900,
@@ -8,7 +8,7 @@
   "resources": {
     "alloy": 420, "alloy_rate": 46, "fuel": 90, "fuel_rate": 30,
     "research": 12, "research_rate": 7, "energy_out": 60, "energy_in": 24,
-    "coal": 37, "coal_rate": 20
+    "coal": 37, "coal_rate": 20, "oil": 24, "oil_rate": 12
   },
   "orbital": {
     "capacity": 6, "used": 2,
@@ -23,10 +23,10 @@
   },
   "policy": { "sandbox_flags": 3, "ai_phase": 1, "ai_strength": 2 },
   "buildings": [
-    { "id": 7, "kind": 1, "tx": 24, "ty": 19, "hp": 180, "hp_max": 180, "state": 2, "progress": 1000, "charge": 0, "flags": 3, "aux": 46 }
+    { "id": 7, "kind": 1, "tx": 24, "ty": 19, "hp": 180, "hp_max": 180, "state": 2, "progress": 1000, "charge": 0, "flags": 3, "aux": 46, "production_milli": 330 }
   ],
   "units": [
-    { "id": 42, "kind": 0, "x": -3072, "y": 768, "z": 0, "hp": 130, "hp_max": 130, "state": 1, "facing": 5, "owner": 1, "target": 7 }
+    { "id": 42, "kind": 0, "x": -3072, "y": 768, "z": 0, "hp": 130, "hp_max": 130, "state": 1, "facing": 5, "owner": 1, "target": 7, "home": 7, "cargo": 18 }
   ],
   "effects": [
     { "kind": 2, "x": 100, "y": 200, "z": 300, "age": 4, "life": 16, "value": 26, "owner": 1 }

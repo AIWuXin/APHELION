@@ -10,6 +10,7 @@ export const ICON_ALLOY = wrap('<path d="M6 9h12l3 5-3 5H6l-3-5z"/><path d="M6 9
 export const ICON_ENERGY = wrap('<path d="M13 2L5 14h6l-1 8 8-12h-6z"/>');
 export const ICON_FUEL = wrap('<path d="M8 21V8h8v13z"/><path d="M8 12h8M11 8V4h2v4"/><path d="M12 15v3"/>');
 export const ICON_COAL = wrap('<path d="M4 17l3-6 5-3 6 2 2 5-3 4H7z"/><path d="M9 11l2 3M14 12l-1 4"/>');
+export const ICON_OIL = wrap('<path d="M12 3c-2 4-6 8-6 12a6 6 0 0 0 12 0c0-4-4-8-6-12z"/><path d="M9 15h6M10 18h4"/>');
 export const ICON_RESEARCH = wrap('<path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M9 3h6M8 15h8"/>');
 export const ICON_PAUSE = wrap('<path d="M9 5v14M15 5v14"/>');
 export const ICON_PLAY = wrap('<path d="M8 5l11 7-11 7z"/>');

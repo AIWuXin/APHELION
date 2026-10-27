@@ -60,8 +60,12 @@ WasmTransport 自己跑 30Hz 定时器：
 离散事件不等待 rAF，避免暂停、后台或掉帧时下一份快照覆盖尚未消费的事件；同一快照对象
 在渲染帧仍会去重（D-20）。速度档位是仿真内部的倍率（1/2/4 个 tick 每次 step），因此提速不改变确定性语义。
 
+内核固定顺序为 `economy → build → launch → logistics → combat → director → era`。
+原六阶段位置不变，`era` 是第七阶段；地面石油货运在 `logistics` 末尾执行，不是第八阶段。
+时代推进只看正常战役里程碑，`World::set_era` 仍仅供测试与压力脚本使用（D-21）。
+
 **两层画布缓存**：`TerrainLayer` 继续按视口流送、分帧烘焙，预算 24 Mpx；`BuildingRenderer`
-每帧只计算一次 `rasterScale(dpr, zoom)`，16 类已建成建筑的 `body` 进入独立的
+每帧只计算一次 `rasterScale(dpr, zoom)`，17 类已建成建筑的 `body` 进入独立的
 `BuildingSpriteCache`（8 Mpx LRU，约 32 MiB），`motion` 与施工/受损仍逐帧绘制。
 缓存键只有建筑 key 与量化后的分辨率档；`spriteAnchor` 让静态 blit 和动态部件落在同一
 逻辑像素。小型单位不增加第二套缓存。
@@ -134,15 +138,19 @@ export class WebSocketTransport implements Transport {
 
 ## 5. 协议与会话
 
-- `PROTOCOL_VERSION` 在 `crates/protocol/src/version.rs`；客户端版本不符会直接拒绝启动。
+- 当前为协议 3。`PROTOCOL_VERSION` 在 `crates/protocol/src/version.rs`；版本不符会拒绝启动。
 - 启动一次：`oc_init(seed)` → `BootBlob`（`Catalog` + 行星参数 `MapView`）→ 之后每帧只发 `Snapshot`。
   `BootBlob` 不含地形数组；客户端按视口调用 `oc_chunk(cx, cy)` 流送 32×32 的 `ChunkView`。
+  `MapView` 携带出生点与油田锚点；`ChunkView` 的六个平面包含独立油藏。
 - 命令：`CommandBatch { client_tick, commands: Vec<Command> }`，postcard。
 - 事件：`Snapshot.events` 聚合一次宿主 `step()` 内的命令与 1–4 个 tick，下一 step 清空；
   HUD 自己维护六条环形日志，不能把快照事件理解为只来自末尾 tick（D-19）。
-- 扩展协议：**只在枚举末尾追加 variant**，不改既有字段；随后跑
-  `cargo test -p oc-protocol` 重新生成 `web/src/generated/` 与 `web/tests/fixtures/`，
-  `npx vitest run` 会验证两侧一致。
+- 扩展协议：枚举只在末尾追加 variant；视图字段只在尾部追加并提升协议版本，不改旧字段顺序。
+  随后跑 `cargo test -p oc-protocol` 重新生成 `web/src/generated/` 与 `web/tests/fixtures/`，
+  `npx vitest run` 会验证两侧一致。破坏性布局变化会让旧回放与固件失效（D-21）。
+- 原油采用两段库存：油井 `BuildingView.aux` 是本地储量，`UnitView.cargo` 是在途载货，
+  `Resources.oil` 只有列车到中枢卸货后才增加。`home` 把列车绑定到所属油井；
+  前端轨线只从权威快照派生，不另存运输状态（D-21）。
 
 ## 6. 确定性契约（改代码前必读）
 
@@ -180,7 +188,7 @@ wry/WebView2，走 `aphelion://` 自定义协议读内嵌资源，不开端口�
 | 文件 | 为什么入库 |
 |---|---|
 | `web/src/generated/*.ts` | ts-rs 从 Rust 结构生成的协议类型。入库后前端不需要 Rust 就能 typecheck；`cargo test` 会重新生成，CI 的 rust job 用 `git diff --exit-code` 检查它是否与 Rust 声明同步。 |
-| `web/public/oc.wasm` | 119 KiB 的仿真内核。入库后 web CI job 变成纯 Node，不必在 Ubuntu 上装 Rust（那一步曾是 CI 唯一的抖动源）。它的同步门禁是**行为哈希**而非字节比较：`git show HEAD:web/public/oc.wasm` 取出入库版本，`scripts/wasm-hash.mjs` 跑 300 idle 帧取 `oc_state_hash()`，与原生 `cargo run -q -p oc-sim-cli -- --idle 300` 的输出现场比对（D-11）。 |
+| `web/public/oc.wasm` | 约 126 KiB 的仿真内核。入库后 web CI job 变成纯 Node，不必在 Ubuntu 上装 Rust（那一步曾是 CI 唯一的抖动源）。它的同步门禁是**行为哈希**而非字节比较：`git show HEAD:web/public/oc.wasm` 取出入库版本，`scripts/wasm-hash.mjs` 跑 300 idle 帧取 `oc_state_hash()`，与原生 `cargo run -q -p oc-sim-cli -- --idle 300` 的输出现场比对（D-11）。 |
 | `assets/icon.ico` `assets/icon.rgba` | `scripts/gen-icon.mjs` 画出来的程序图标。前者由 `crates/desktop/build.rs` 编进资源段（连同 manifest 与 VERSIONINFO），后者在运行时给 tao 窗口；生成它需要画图代码而不是外部素材，所以入库避免每次构建都跑一遍脚本。 |
 
 所以 CI 是三个职责清晰的 job：`rust`（内核门禁）、`web`（纯 Node 表现层门禁）、

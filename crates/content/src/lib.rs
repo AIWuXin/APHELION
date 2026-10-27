@@ -42,7 +42,7 @@ mod tests {
         assert_eq!(c.buildings.len(), buildings::B_COUNT as usize);
         assert_eq!(c.units.len(), units::U_COUNT as usize);
         assert_eq!(c.routes.len(), routes::R_COUNT as usize);
-        assert_eq!(c.events.len(), 14);
+        assert_eq!(c.events.len(), 16);
         assert_eq!(c.techs.len(), 4);
     }
 

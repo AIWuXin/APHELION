@@ -178,7 +178,7 @@ mod tests {
         assert_eq!(route_keys().len(), routes::R_COUNT as usize);
         assert_eq!(terrain_keys().len(), terrain::T_COUNT as usize);
         assert_eq!(decor_keys().len(), terrain::D_COUNT as usize);
-        assert_eq!(event_keys().len(), 14);
+        assert_eq!(event_keys().len(), 16);
     }
 
     #[test]

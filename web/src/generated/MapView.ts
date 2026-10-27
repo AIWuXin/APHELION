@@ -27,4 +27,12 @@ start_tx: number,
 /**
  * Colony anchor tile y.
  */
-start_ty: number, };
+start_ty: number, 
+/**
+ * Guided regional oilfield anchor x.
+ */
+oil_tx: number, 
+/**
+ * Guided regional oilfield anchor y.
+ */
+oil_ty: number, };

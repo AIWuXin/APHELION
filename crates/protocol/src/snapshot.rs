@@ -90,6 +90,10 @@ pub const EVENT_SHORTAGE: u8 = 11;
 pub const EVENT_END: u8 = 12;
 /// Ground raiders spawned on a ring around the colony (era 1 director).
 pub const EVENT_RAID: u8 = 13;
+/// A normal campaign milestone unlocked the next industrial era.
+pub const EVENT_ERA: u8 = 14;
+/// A freight train and its crude cargo were destroyed.
+pub const EVENT_FREIGHT: u8 = 15;
 
 /// Every resource the top bar shows, plus the rates used for the deltas.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, TS)]
@@ -115,6 +119,10 @@ pub struct Resources {
     pub coal: i32,
     /// Coal per minute.
     pub coal_rate: i32,
+    /// Crude oil delivered to the colony (T2 chemical feedstock).
+    pub oil: i32,
+    /// Delivered crude oil per minute.
+    pub oil_rate: i32,
 }
 
 /// A single orbital trade route.
@@ -187,10 +195,13 @@ pub struct BuildingView {
     pub progress: u16,
     /// 0..1000 charge / cooldown for turrets and pads.
     pub charge: u16,
-    /// Bit flags: 1 powered, 2 on a deposit, 4 damaged, 8 selectable.
+    /// Bit flags: 1 powered, 2 on a deposit, 4 damaged, 8 selectable,
+    /// 16 first freight train already spawned (persistent ownership state).
     pub flags: u8,
-    /// Free-form auxiliary value (queue length, target id, ...).
+    /// Free-form auxiliary value (queue length, target id, oil stock, ...).
     pub aux: u16,
+    /// Fractional local production, used by oil wells and included in hashes.
+    pub production_milli: u16,
 }
 
 /// A ground or low-air unit.
@@ -219,6 +230,10 @@ pub struct UnitView {
     pub owner: u8,
     /// Current target entity id, or 0.
     pub target: EntityId,
+    /// Home hangar or oil well, or 0 for field units.
+    pub home: EntityId,
+    /// Crude oil currently carried by a freight train.
+    pub cargo: u32,
 }
 
 /// An orbital contact rendered above the colony.

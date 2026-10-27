@@ -69,7 +69,7 @@ export interface BuildingArt {
 export type CraftView = Pick<
   UnitView,
   'id' | 'kind' | 'x' | 'y' | 'z' | 'hp' | 'hp_max' | 'state' | 'owner' | 'target'
-> & { readonly facing?: number };
+> & { readonly facing?: number; readonly cargo?: number; readonly home?: number };
 
 /** Paints a ground or low-air unit. */
 export type UnitPainter = (

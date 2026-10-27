@@ -3,8 +3,8 @@
 
 /// Starting alloy.
 pub const START_ALLOY: i32 = 420;
-/// Starting fuel cells.
-pub const START_FUEL: i32 = 90;
+/// Starting fuel cells. Zero: rockets need the T2 petroleum chain.
+pub const START_FUEL: i32 = 0;
 /// Starting research points.
 pub const START_RESEARCH: i32 = 0;
 /// Starting coal. Zero on purpose: T1 opens on solar power, and the first
@@ -33,8 +33,23 @@ pub const COAL_SEAM_FULL: i32 = 480;
 pub const COAL_BURN_PER_MIN: i32 = 10;
 /// Fuel synth fuel cells per minute.
 pub const FUEL_PER_MIN: i32 = 30;
-/// Alloy burned by the fuel synth per minute.
-pub const FUEL_ALLOY_PER_MIN: i32 = 12;
+/// Delivered crude oil burned by the fuel synth per minute.
+pub const FUEL_OIL_PER_MIN: i32 = 12;
+/// Crude oil per minute from a well on a full reservoir. Tuned after the
+/// normal campaign showed that 12/min missed the first chemical window.
+pub const OIL_PER_MIN: i32 = 24;
+/// Reservoir richness that counts as fully saturated over a 2x2 footprint.
+pub const OIL_SEAM_FULL: i32 = 480;
+/// Local oil storage at each well; it is not colony stock until delivered.
+pub const OIL_STOCK_CAP: u32 = 60;
+/// Maximum crude oil carried by one freight train.
+pub const TRAIN_CAPACITY: u32 = 30;
+/// Smaller partial loads keep the first delivery useful without teleporting it.
+pub const TRAIN_MIN_LOAD: u32 = 10;
+/// Delay before a destroyed freight train can be replaced.
+pub const TRAIN_REBUILD_MS: u16 = 15_000;
+/// Alloy charged for a replacement freight train.
+pub const TRAIN_REBUILD_ALLOY: i32 = 25;
 /// Research lab points per minute. Tuned up from 7: the lab is a 150-alloy
 /// investment and the four techs gate the whole orbital/defence layer, so the
 /// first tech has to be reachable inside a ~2 minute opening.

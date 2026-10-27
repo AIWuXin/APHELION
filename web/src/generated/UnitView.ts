@@ -47,4 +47,12 @@ owner: number,
 /**
  * Current target entity id, or 0.
  */
-target: number, };
+target: number, 
+/**
+ * Home hangar or oil well, or 0 for field units.
+ */
+home: number, 
+/**
+ * Crude oil currently carried by a freight train.
+ */
+cargo: number, };

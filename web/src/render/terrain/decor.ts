@@ -13,6 +13,7 @@ import { mix } from '../../style/tokens';
 import { TERRAIN_KEYS } from '../../generated/content-keys';
 import { dot, isoPoint, rand01, rand2 } from './noise';
 import { rockOf } from './rock';
+import { paintOilSeam } from './oil';
 import { oreFacets, oreTraceVisible } from './surface-rules';
 import type { TileInfo } from './tile';
 
@@ -251,6 +252,7 @@ export function paintDecorTile(
   richness: number,
   golden: boolean,
   coal: number,
+  oil: number,
 ): void {
   const { cx, cy, tx, ty } = t;
   const variant = rand01(tx, ty, 0x8a);
@@ -292,4 +294,5 @@ export function paintDecorTile(
   }
   if (richness > 0) deposit(t, richness);
   if (coal > 0) coalSeam(t, coal);
+  if (oil > 0) paintOilSeam(t, oil);
 }

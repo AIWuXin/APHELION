@@ -2,7 +2,7 @@
 //! LRU cache the simulation queries through.
 //!
 //! The whole point of the chunk contract is that a chunk is a **pure function of
-//! `(seed, home, cx, cy)`**: it may be generated, evicted, and generated again at
+//! `(seed, home, oil_home, cx, cy)`**: it may be generated, evicted, and generated again at
 //! any later moment and must come back byte for byte. No generation order, no
 //! neighbour lookups, no floats. That is what makes a 10240 x 10240 planet
 //! affordable: only the ~256 chunks a colony actually touches are resident
@@ -34,6 +34,8 @@ pub struct TileData {
     pub deposit: u8,
     /// Coal seam richness, `0` = none.
     pub coal: u8,
+    /// Oil reservoir richness, `0` = none.
+    pub oil: u8,
 }
 
 /// A generated 32x32 tile block, row-major.
@@ -53,6 +55,8 @@ pub struct Chunk {
     pub deposit: Vec<u8>,
     /// Coal seam richness per tile.
     pub coal: Vec<u8>,
+    /// Oil reservoir richness per tile.
+    pub oil: Vec<u8>,
 }
 
 impl Chunk {
@@ -67,6 +71,7 @@ impl Chunk {
             decor: vec![0; CHUNK_TILES],
             deposit: vec![0; CHUNK_TILES],
             coal: vec![0; CHUNK_TILES],
+            oil: vec![0; CHUNK_TILES],
         }
     }
 
@@ -86,10 +91,11 @@ impl Chunk {
             decor: self.decor[i],
             deposit: self.deposit[i],
             coal: self.coal[i],
+            oil: self.oil[i],
         }
     }
 
-    /// Wire view of this chunk (five 1024-tile arrays plus its coordinates).
+    /// Wire view of this chunk (six 1024-tile arrays plus its coordinates).
     #[must_use]
     pub fn view(&self) -> ChunkView {
         ChunkView {
@@ -100,6 +106,7 @@ impl Chunk {
             elev: self.height.clone(),
             ore: self.deposit.clone(),
             coal: self.coal.clone(),
+            oil: self.oil.clone(),
         }
     }
 }
@@ -119,6 +126,7 @@ struct CachedChunk {
 pub struct ChunkCache {
     seed: u32,
     home: (i32, i32),
+    oil_home: (i32, i32),
     capacity: usize,
     clock: u64,
     entries: BTreeMap<u32, CachedChunk>,
@@ -127,16 +135,22 @@ pub struct ChunkCache {
 impl ChunkCache {
     /// A cache holding up to [`CHUNK_CACHE_CAPACITY`] chunks.
     #[must_use]
-    pub fn new(seed: u32, home: (i32, i32)) -> Self {
-        Self::with_capacity(seed, home, CHUNK_CACHE_CAPACITY)
+    pub fn new(seed: u32, home: (i32, i32), oil_home: (i32, i32)) -> Self {
+        Self::with_capacity(seed, home, oil_home, CHUNK_CACHE_CAPACITY)
     }
 
     /// A cache with an explicit budget (tests exercise eviction with a tiny one).
     #[must_use]
-    pub fn with_capacity(seed: u32, home: (i32, i32), capacity: usize) -> Self {
+    pub fn with_capacity(
+        seed: u32,
+        home: (i32, i32),
+        oil_home: (i32, i32),
+        capacity: usize,
+    ) -> Self {
         Self {
             seed,
             home,
+            oil_home,
             capacity: capacity.max(1),
             clock: 0,
             entries: BTreeMap::new(),
@@ -180,7 +194,7 @@ impl ChunkCache {
             if self.entries.len() >= self.capacity {
                 self.evict();
             }
-            let chunk = mapgen::chunk(self.seed, self.home, cx, cy);
+            let chunk = mapgen::chunk(self.seed, self.home, self.oil_home, cx, cy);
             self.entries.insert(key, CachedChunk { chunk, stamp });
         }
         let entry = self.entries.get_mut(&key).expect("chunk just inserted");
@@ -224,7 +238,7 @@ mod tests {
     #[test]
     fn the_cache_evicts_the_least_recently_used_chunk() {
         let home = find_home(SEED);
-        let mut cache = ChunkCache::with_capacity(SEED, home, 2);
+        let mut cache = ChunkCache::with_capacity(SEED, home, mapgen::oil_site(SEED, home), 2);
         cache.chunk(10, 10);
         cache.chunk(11, 10);
         cache.chunk(10, 10); // 10 is now newer than 11
@@ -239,8 +253,9 @@ mod tests {
     #[test]
     fn regenerating_an_evicted_chunk_is_byte_identical() {
         let home = find_home(SEED);
-        let fresh = mapgen::chunk(SEED, home, 4, 7);
-        let mut cache = ChunkCache::with_capacity(SEED, home, 1);
+        let oil_home = mapgen::oil_site(SEED, home);
+        let fresh = mapgen::chunk(SEED, home, oil_home, 4, 7);
+        let mut cache = ChunkCache::with_capacity(SEED, home, oil_home, 1);
         let cached = cache.chunk(4, 7).clone();
         assert_eq!(cached.material, fresh.material);
         // Push it out of a one-slot cache, then pull the same chunk back in.
@@ -254,6 +269,7 @@ mod tests {
         assert_eq!(again.decor, fresh.decor, "decor differs after eviction");
         assert_eq!(again.deposit, fresh.deposit, "ore differs after eviction");
         assert_eq!(again.coal, fresh.coal, "coal differs after eviction");
+        assert_eq!(again.oil, fresh.oil, "oil differs after eviction");
         assert_eq!(again.cx, 4);
         assert_eq!(again.cy, 7);
     }
@@ -261,7 +277,7 @@ mod tests {
     #[test]
     fn chunk_coordinates_wrap() {
         let home = find_home(SEED);
-        let mut cache = ChunkCache::with_capacity(SEED, home, 4);
+        let mut cache = ChunkCache::with_capacity(SEED, home, mapgen::oil_site(SEED, home), 4);
         let a = cache.chunk(CHUNKS, 0).clone();
         let b = cache.chunk(0, 0).clone();
         assert_eq!(a.cx, 0);

@@ -1,5 +1,7 @@
 //! Building table. **Append** rows; never reorder -- the index is the wire id.
 
+mod oil;
+
 /// One row of the building table (all `&'static` so it can live in `const`).
 pub struct BuildingRow {
     /// Stable kebab-case render-registry key.
@@ -80,8 +82,10 @@ pub const B_REPAIR: u8 = 13;
 pub const B_COAL_MINE: u8 = 14;
 /// Thermal power plant (T1, burns coal for high output).
 pub const B_COAL_PLANT: u8 = 15;
+/// Oil well with local storage and an automatic freight train (T2).
+pub const B_OIL_WELL: u8 = 16;
 /// Number of building kinds.
-pub const B_COUNT: u8 = 16;
+pub const B_COUNT: u8 = 17;
 
 /// The table.
 pub static BUILDINGS: &[BuildingRow] = &[
@@ -140,7 +144,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         key: "fuel-synth",
         zh: "燃料合成站",
         en: "FUEL SYNTH",
-        desc: "把电力与合金压制成燃料电池",
+        desc: "消耗原油与电力，合成火箭燃料",
         cost_alloy: 120,
         cost_fuel: 0,
         energy: -15,
@@ -357,6 +361,7 @@ pub static BUILDINGS: &[BuildingRow] = &[
         capacity: 10,
         tier: 1,
     },
+    oil::WELL,
 ];
 
 /// Convert a row to the wire definition.

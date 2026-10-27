@@ -7,8 +7,8 @@ import { buildingCentre } from '../../web/src/ui/radar-layout';
 
 describe('aerospace command HUD assets', () => {
   it('maps every building to a distinct filled isometric thumbnail in generated order', () => {
-    expect(BUILDING_ICONS).toHaveLength(16);
-    expect(new Set(BUILDING_ICONS).size).toBe(16);
+    expect(BUILDING_ICONS).toHaveLength(17);
+    expect(new Set(BUILDING_ICONS).size).toBe(17);
     BUILDING_KEYS.forEach((key, index) => {
       const icon = BUILDING_ICONS[index] ?? '';
       expect(icon).toContain(`data-asset="${key}"`);
@@ -17,9 +17,9 @@ describe('aerospace command HUD assets', () => {
     });
   });
 
-  it('maps all seven unit silhouettes without substituting generic glyphs', () => {
-    expect(UNIT_ICONS).toHaveLength(7);
-    expect(new Set(UNIT_ICONS).size).toBe(7);
+  it('maps all eight unit silhouettes without substituting generic glyphs', () => {
+    expect(UNIT_ICONS).toHaveLength(8);
+    expect(new Set(UNIT_ICONS).size).toBe(8);
     UNIT_KEYS.forEach((key, index) => {
       expect(UNIT_ICONS[index]).toContain(`data-asset="${key}"`);
       expect(UNIT_ICONS[index]).toContain('viewBox="0 0 48 36"');

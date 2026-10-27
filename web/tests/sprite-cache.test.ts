@@ -48,8 +48,8 @@ describe('building sprite cache', () => {
     expect(buildingSpriteKey('solar-array', 2.5)).not.toBe(buildingSpriteKey('solar-array', 2));
   });
 
-  it('provides complete bounded art for all sixteen buildings', () => {
-    expect(Object.keys(BUILDING_ART)).toHaveLength(16);
+  it('provides complete bounded art for all seventeen buildings', () => {
+    expect(Object.keys(BUILDING_ART)).toHaveLength(17);
     for (const key of BUILDING_KEYS) {
       const art = BUILDING_ART[key];
       expect(art.body).toBeTypeOf('function');

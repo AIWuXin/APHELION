@@ -2,14 +2,14 @@
 //!
 //! Power is an all-or-nothing budget: when demand exceeds supply every
 //! consumer stops (that is what makes an extra solar array matter). Fuel
-//! synthesis is explicitly alloy-gated so it can never create fuel for free;
+//! synthesis is explicitly crude-gated so it can never create fuel for free;
 //! thermal plants are coal-gated for the same reason.
 
 use oc_content::balance;
 use oc_content::buildings;
 use oc_protocol::{B_STATE_BLOCKED, B_STATE_IDLE, B_STATE_SITE, B_STATE_WORKING, EVENT_POWER};
 
-use crate::world::{World, MAX_COAL, MAX_FUEL, MAX_RESEARCH, SANDBOX_INFINITE};
+use crate::world::{World, MAX_COAL, MAX_FUEL, MAX_OIL, MAX_RESEARCH, SANDBOX_INFINITE};
 
 /// Flags reported to the HUD (`BuildingView::flags`).
 const FLAG_POWERED: u8 = 1;
@@ -101,6 +101,24 @@ pub fn update(world: &mut World, dt_ms: u32) {
                     B_STATE_IDLE
                 };
             }
+            buildings::B_OIL_WELL => {
+                let size = i32::from(World::def(b.kind).footprint);
+                let reservoir = world.map.footprint_oil(b.tx, b.ty, size);
+                if powered && reservoir > 0 && b.aux < balance::OIL_STOCK_CAP {
+                    let permille = (reservoir * 1000 / balance::OIL_SEAM_FULL.max(1)).min(1000);
+                    let amount = balance::OIL_PER_MIN * permille / 1000;
+                    b.production_milli += milli_per_tick(amount, dt_ms) as u32;
+                    let units = b.production_milli / 1000;
+                    b.production_milli %= 1000;
+                    b.aux = (b.aux + units).min(balance::OIL_STOCK_CAP);
+                    working = true;
+                }
+                b.state = if working {
+                    B_STATE_WORKING
+                } else {
+                    B_STATE_IDLE
+                };
+            }
             buildings::B_COAL_PLANT => {
                 b.state = if plants.get(i).copied().unwrap_or(false) {
                     B_STATE_WORKING
@@ -125,17 +143,21 @@ pub fn update(world: &mut World, dt_ms: u32) {
         }
     }
 
-    // ---- fuel synthesis: convert alloy, never conjure fuel ---------------
-    let mut alloy_drain = 0;
-    let mut budget_milli = world.res.alloy.max(0) * 1000 + world.res.a_alloy + alloy_milli;
+    // ---- fuel synthesis: convert delivered crude, never conjure fuel -------
+    let mut oil_drain = 0;
+    let mut budget_milli = if infinite {
+        i32::MAX
+    } else {
+        world.res.oil.max(0) * 1000 + world.res.a_oil
+    };
     for b in &mut world.buildings {
         if b.state == B_STATE_SITE || b.kind != buildings::B_FUEL {
             continue;
         }
-        let cost = milli_per_tick(balance::FUEL_ALLOY_PER_MIN, dt_ms);
+        let cost = milli_per_tick(balance::FUEL_OIL_PER_MIN, dt_ms);
         if powered && budget_milli >= cost {
             budget_milli -= cost;
-            alloy_drain += cost;
+            oil_drain += cost;
             let amount = balance::FUEL_PER_MIN;
             fuel_milli += milli_per_tick(amount, dt_ms);
             rate_fuel += amount;
@@ -148,7 +170,7 @@ pub fn update(world: &mut World, dt_ms: u32) {
     }
 
     // ---- commit the milli-unit accumulators ------------------------------
-    world.res.a_alloy += alloy_milli - alloy_drain;
+    world.res.a_alloy += alloy_milli;
     world.res.a_fuel += fuel_milli;
     world.res.a_research += research_milli;
 
@@ -165,6 +187,17 @@ pub fn update(world: &mut World, dt_ms: u32) {
     let research_units = world.res.a_research.div_euclid(1000);
     world.res.a_research = world.res.a_research.rem_euclid(1000);
     world.res.research = (world.res.research + research_units).clamp(0, MAX_RESEARCH);
+
+    // ---- delivered crude minus what the chemical plants consumed ---------
+    if infinite {
+        world.res.oil = world.res.oil.max(balance::SANDBOX_RESOURCE_FLOOR);
+        world.res.a_oil = 0;
+    } else {
+        world.res.a_oil -= oil_drain;
+        let oil_units = world.res.a_oil.div_euclid(1000);
+        world.res.a_oil = world.res.a_oil.rem_euclid(1000);
+        world.res.oil = (world.res.oil + oil_units).clamp(0, MAX_OIL);
+    }
 
     // ---- coal: mined this tick minus what the thermal plants burned -------
     if infinite {
@@ -255,11 +288,15 @@ fn apply_flags(world: &mut World, powered: bool) {
             continue;
         }
         let size = i32::from(World::def(b.kind).footprint);
-        let mut flags = FLAG_SELECTABLE;
+        let mut flags = b.flags & crate::systems::freight::FLAG_TRAIN_STARTED;
+        flags |= FLAG_SELECTABLE;
         if powered {
             flags |= FLAG_POWERED;
         }
-        if map.footprint_deposit(b.tx, b.ty, size) > 0 || map.footprint_coal(b.tx, b.ty, size) > 0 {
+        if map.footprint_deposit(b.tx, b.ty, size) > 0
+            || map.footprint_coal(b.tx, b.ty, size) > 0
+            || map.footprint_oil(b.tx, b.ty, size) > 0
+        {
             flags |= FLAG_DEPOSIT;
         }
         if b.hp < b.hp_max {

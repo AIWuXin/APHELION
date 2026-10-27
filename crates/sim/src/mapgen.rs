@@ -1,10 +1,9 @@
 //! Planet generation: a 10240 x 10240 torus, generated per chunk, climate first.
 //!
-//! Everything here is a pure function of `(seed, home, tile)`. The colony is the
-//! only "authored" feature -- a landing pad, a local haul-road grid, a guaranteed
-//! ore body east of the hub and coal seams west and south of it -- and even that
-//! is expressed as a per-tile overlay so it can be regenerated after a cache
-//! eviction without remembering anything.
+//! Everything here is a pure function of `(seed, home, oil_home, tile)`. The
+//! authored overlays are the colony landing pad, road grid, nearby ore and coal,
+//! plus a regional oilfield selected by [`oil_site`]. Every overlay is a per-tile
+//! function so an evicted chunk can be regenerated without remembering anything.
 //!
 //! The home tile is chosen by [`find_home`], a bounded deterministic spiral from
 //! the planet centre. It has to be dry, in a non-frozen climate band, have rich
@@ -18,6 +17,7 @@ pub mod climate;
 mod decor;
 pub mod home;
 pub mod noise;
+pub mod oil;
 
 use oc_content::terrain::{
     terrain_buildable, T_APRON, T_BASALT, T_BRINE, T_CRYSTAL, T_DEEP, T_REGOLITH, T_ROAD, T_SAND,
@@ -35,6 +35,7 @@ pub use home::{
     HOME_INLAND_RAY_STEP, HOME_MIN_ORE_SAMPLES, HOME_ORE_RADIUS, HOME_SEARCH_RINGS,
     HOME_SEARCH_STEP,
 };
+pub use oil::{oil_site, OIL_ANCHOR_MAX, OIL_ANCHOR_MIN, OIL_PATCH_RADIUS, OIL_PATCH_RICHNESS};
 
 // ------------------------------------------------------------ colony layout --
 
@@ -67,12 +68,14 @@ pub const GUARANTEED_RICHNESS: u8 = 120;
 // lives in `mapgen::home`; the public constants and `find_home` are
 // re-exported above so `mapgen::find_home` keeps working.
 
-/// Result of whole-planet setup: the (empty) chunk-backed map plus the anchor.
+/// Result of whole-planet setup: the (empty) chunk-backed map plus the anchors.
 pub struct Generated {
     /// Tile data, generated on demand.
     pub map: Map,
     /// Colony anchor tile (north-west corner of the hub footprint).
     pub start: (i32, i32),
+    /// Regional oilfield anchor shared with terrain streaming and the HUD.
+    pub oil_home: (i32, i32),
 }
 
 /// Footprint edge of the command hub, read from the content table.
@@ -81,13 +84,15 @@ pub fn hq_size() -> i32 {
     i32::from(oc_content::buildings::BUILDINGS[oc_content::buildings::B_HQ as usize].footprint)
 }
 
-/// Boot the planet: pick the home tile, then hand back an empty chunk map.
+/// Boot the planet: pick the home and oilfield, then hand back an empty chunk map.
 #[must_use]
 pub fn generate(seed: u32) -> Generated {
     let start = find_home(seed);
+    let oil_home = oil_site(seed, start);
     Generated {
-        map: Map::new(seed, start),
+        map: Map::new(seed, start, oil_home),
         start,
+        oil_home,
     }
 }
 
@@ -115,17 +120,24 @@ fn colony_fill(seed: u32, home: (i32, i32), x: i32, y: i32) -> u8 {
     }
 }
 
-/// One finished tile: climate biome plus the colony overlay plus decoration.
+/// One finished tile: climate biome plus the colony/oil overlays plus decoration.
 #[must_use]
-pub fn tile(seed: u32, home: (i32, i32), x: i32, y: i32) -> TileData {
-    tile_with(&climate::Axes::Direct, seed, home, x, y)
+pub fn tile(seed: u32, home: (i32, i32), oil_home: (i32, i32), x: i32, y: i32) -> TileData {
+    tile_with(&climate::Axes::Direct, seed, home, oil_home, x, y)
 }
 
 /// One finished tile whose climate axes come from a caller-supplied source: the
 /// chunk generator hands in a per-chunk table so the torus trig is paid once per
 /// column and row instead of once per tile.
 #[must_use]
-fn tile_with(axes: &climate::Axes, seed: u32, home: (i32, i32), x: i32, y: i32) -> TileData {
+fn tile_with(
+    axes: &climate::Axes,
+    seed: u32,
+    home: (i32, i32),
+    oil_home: (i32, i32),
+    x: i32,
+    y: i32,
+) -> TileData {
     let (x, y) = torus::wrap(x, y);
     let base = climate::base_tile_of(axes, seed, x, y);
     let dx = torus::delta_x(home.0, x);
@@ -148,6 +160,7 @@ fn tile_with(axes: &climate::Axes, seed: u32, home: (i32, i32), x: i32, y: i32) 
     // 2. Guaranteed extraction sites: ore east of the hub, coal west and south.
     let mut deposit = base.deposit;
     let mut coal = base.coal;
+    let mut oil = base.oil;
     let guaranteed_ore = in_rect(dx, dy, hq, 1, hq + GUARANTEE_SPAN - 1, GUARANTEE_SPAN);
     let guaranteed_coal =
         in_rect(dx, dy, -GUARANTEE_SPAN, 1, -1, GUARANTEE_SPAN) || in_rect(dx, dy, -1, 7, 4, 12);
@@ -157,18 +170,33 @@ fn tile_with(axes: &climate::Axes, seed: u32, home: (i32, i32), x: i32, y: i32) 
     if guaranteed_coal {
         coal = coal.max(GUARANTEED_RICHNESS);
     }
-    // 3. The hub owns its footprint outright: scenario-placed ore it could never
-    //    mine would be dead weight forever.
+
+    // 2b. A guided oilfield is still a pure function of the cached anchor. The
+    // overlay never displaces T1 resources; its fallback can drain a small patch.
+    let oil_dx = torus::delta_x(oil_home.0, x);
+    let oil_dy = torus::delta_y(oil_home.1, y);
+    if oil_dx.abs() <= OIL_PATCH_RADIUS
+        && oil_dy.abs() <= OIL_PATCH_RADIUS
+        && deposit == 0
+        && coal == 0
+    {
+        oil = oil.max(OIL_PATCH_RICHNESS);
+        if !terrain_buildable(material) {
+            material = T_REGOLITH;
+            height = 1;
+        }
+    }
+
+    // 3. The hub owns its footprint outright: scenario-placed resources it could
+    //    never mine would be dead weight forever.
     let hub = in_rect(dx, dy, 0, 0, hq - 1, hq - 1);
     if hub {
         deposit = 0;
         coal = 0;
+        oil = 0;
     }
-    // 3b. Sweep stray veins off the prepared landing plot. Climate ore is dense
-    //     enough that a one-tile speck two steps from the hub would otherwise
-    //     become "the nearest deposit", and the opening refinery would sit on a
-    //     near-worthless footprint instead of the guaranteed body. The plant
-    //     does not remove the guaranteed bodies -- those are the opening sites.
+    // 3b. Sweep stray resources off the prepared landing plot. The guaranteed
+    // T1 bodies remain; the regional oil anchor is outside this plot.
     if !hub
         && dx.abs() <= COLONY_LAND_RADIUS
         && dy.abs() <= COLONY_LAND_RADIUS
@@ -176,6 +204,7 @@ fn tile_with(axes: &climate::Axes, seed: u32, home: (i32, i32), x: i32, y: i32) 
     {
         deposit = 0;
         coal = 0;
+        oil = 0;
     }
 
     // 4. Local haul-road grid, kept off water and crystal fields.
@@ -197,13 +226,14 @@ fn tile_with(axes: &climate::Axes, seed: u32, home: (i32, i32), x: i32, y: i32) 
         height = height.max(1);
     }
 
-    let decor = decor_for(seed, x, y, material, deposit, coal);
+    let decor = decor_for(seed, x, y, material, deposit, coal, oil);
     TileData {
         material,
         height,
         decor,
         deposit,
         coal,
+        oil,
     }
 }
 
@@ -214,7 +244,7 @@ fn tile_with(axes: &climate::Axes, seed: u32, home: (i32, i32), x: i32, y: i32) 
 /// arithmetic that consumes those axes is unchanged, which is what the frozen
 /// digest in `tests/mapgen_contract.rs` pins down.
 #[must_use]
-pub fn chunk(seed: u32, home: (i32, i32), cx: i32, cy: i32) -> Chunk {
+pub fn chunk(seed: u32, home: (i32, i32), oil_home: (i32, i32), cx: i32, cy: i32) -> Chunk {
     let cx = torus::rem_euclid(cx, CHUNKS);
     let cy = torus::rem_euclid(cy, CHUNKS);
     let mut chunk = Chunk::new(cx, cy);
@@ -224,13 +254,14 @@ pub fn chunk(seed: u32, home: (i32, i32), cx: i32, cy: i32) -> Chunk {
     let axes = climate::Axes::Chunk(&table);
     for ly in 0..CHUNK {
         for lx in 0..CHUNK {
-            let tile = tile_with(&axes, seed, home, ox + lx, oy + ly);
+            let tile = tile_with(&axes, seed, home, oil_home, ox + lx, oy + ly);
             let i = Chunk::index(lx, ly);
             chunk.material[i] = tile.material;
             chunk.height[i] = tile.height;
             chunk.decor[i] = tile.decor;
             chunk.deposit[i] = tile.deposit;
             chunk.coal[i] = tile.coal;
+            chunk.oil[i] = tile.oil;
         }
     }
     chunk

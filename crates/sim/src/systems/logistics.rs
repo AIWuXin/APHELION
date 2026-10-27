@@ -5,6 +5,8 @@
 //! later lanes first. `RouteView.grade` is that supply ratio in permille and
 //! `RouteView.throughput` is its smoothed HUD value; deliveries scale with the
 //! grade, so opening a third lane before building enough lift visibly pays less.
+//! Ground petroleum freight runs last in this stage, preserving the six original
+//! system positions; normal era milestones run separately after the director.
 
 use oc_content::buildings;
 use oc_content::routes::ROUTES;
@@ -64,6 +66,7 @@ pub fn update(world: &mut World, dt_ms: u32) {
         spawn_hauler(world);
     }
     fly_haulers(world, dt_ms);
+    crate::systems::freight::update(world, dt_ms);
 }
 
 fn permille(part: u16, whole: u16) -> u16 {

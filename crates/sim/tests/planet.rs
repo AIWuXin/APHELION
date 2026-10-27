@@ -30,21 +30,9 @@ fn a_footprint_anchored_on_the_seam_wraps_its_occupancy() {
     let (tx, ty) = (torus::MAP_W - 1, torus::MAP_H - 1);
     let id = world.place_now(b::B_SOLAR, tx, ty, true);
     assert_eq!(id, world.map.occupant(tx, ty));
-    assert_eq!(
-        world.map.occupant(0, ty),
-        id,
-        "east column of the footprint wraps"
-    );
-    assert_eq!(
-        world.map.occupant(tx, 0),
-        id,
-        "south row of the footprint wraps"
-    );
-    assert_eq!(
-        world.map.occupant(0, 0),
-        id,
-        "corner tile wraps into the origin"
-    );
+    assert_eq!(world.map.occupant(0, ty), id);
+    assert_eq!(world.map.occupant(tx, 0), id);
+    assert_eq!(world.map.occupant(0, 0), id);
     assert!(world.map.footprint_taken(tx, ty, 2));
     // Placement queries agree through the seam.
     assert!(
@@ -123,16 +111,18 @@ fn an_explosion_at_the_seam_reports_wrapped_coordinates() {
 #[test]
 fn a_chunk_is_a_pure_function_of_seed_and_chunk() {
     let home = mapgen::find_home(SEED);
-    let a = mapgen::chunk(SEED, home, 7, 11);
-    let b = mapgen::chunk(SEED, home, 7, 11);
+    let oil_home = mapgen::oil_site(SEED, home);
+    let a = mapgen::chunk(SEED, home, oil_home, 7, 11);
+    let b = mapgen::chunk(SEED, home, oil_home, 7, 11);
     for i in 0..a.material.len() {
         assert_eq!(a.material[i], b.material[i], "terrain differs at {i}");
         assert_eq!(a.height[i], b.height[i], "elevation differs at {i}");
         assert_eq!(a.decor[i], b.decor[i], "decor differs at {i}");
         assert_eq!(a.deposit[i], b.deposit[i], "ore differs at {i}");
         assert_eq!(a.coal[i], b.coal[i], "coal differs at {i}");
+        assert_eq!(a.oil[i], b.oil[i], "oil differs at {i}");
     }
-    let other = mapgen::chunk(SEED ^ 1, home, 7, 11);
+    let other = mapgen::chunk(SEED ^ 1, home, mapgen::oil_site(SEED ^ 1, home), 7, 11);
     assert_ne!(a.material, other.material, "seeds must diverge");
 }
 
@@ -143,12 +133,19 @@ fn chunk_views_are_wrapped_and_match_the_generator() {
     assert_eq!(view.cx, torus::CHUNKS - 1);
     assert_eq!(view.cy, 0);
     assert_eq!(view.terrain.len(), torus::CHUNK_TILES);
-    let direct = mapgen::chunk(SEED, mapgen::find_home(SEED), torus::CHUNKS - 1, 0);
+    let direct = mapgen::chunk(
+        SEED,
+        world.map.start,
+        world.map.oil_home,
+        torus::CHUNKS - 1,
+        0,
+    );
     assert_eq!(view.terrain, direct.material);
     assert_eq!(view.elev, direct.height);
     assert_eq!(view.decor, direct.decor);
     assert_eq!(view.ore, direct.deposit);
     assert_eq!(view.coal, direct.coal);
+    assert_eq!(view.oil, direct.oil);
     assert!(world.map.loaded_chunks() <= oc_sim::CHUNK_CACHE_CAPACITY);
 }
 
@@ -322,17 +319,16 @@ fn the_mineral_fields_are_clusters_not_a_carpet() {
 
 #[test]
 fn the_prepared_colony_plot_is_buildable_ground_not_a_chequerboard() {
-    // The landing fill used to be `(x*5 + y*3) % 11 < 4`, which drew a one-tile
-    // chequerboard on the 19x19 plot. The contract now: every tile of the plot is
-    // buildable, both fill materials occur, and the material boundary is a slow
-    // patch edge rather than a per-tile period.
+    // Every plot tile is buildable, both fill materials occur, and the boundary
+    // is a slow patch edge rather than the old per-tile chequerboard.
     let home = mapgen::find_home(SEED);
+    let oil_home = mapgen::oil_site(SEED, home);
     let radius = mapgen::COLONY_LAND_RADIUS;
     let width = (2 * radius + 1) as usize;
     let mut materials = Vec::with_capacity(width * width);
     for dy in -radius..=radius {
         for dx in -radius..=radius {
-            let tile = mapgen::tile(SEED, home, home.0 + dx, home.1 + dy);
+            let tile = mapgen::tile(SEED, home, oil_home, home.0 + dx, home.1 + dy);
             assert!(
                 terrain_buildable(tile.material),
                 "prepared ground at ({dx},{dy}) is not buildable"

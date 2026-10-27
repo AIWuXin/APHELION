@@ -28,6 +28,10 @@ pub struct MapView {
     pub start_tx: u16,
     /// Colony anchor tile y.
     pub start_ty: u16,
+    /// Guided regional oilfield anchor x.
+    pub oil_tx: u16,
+    /// Guided regional oilfield anchor y.
+    pub oil_ty: u16,
 }
 
 /// One 32x32 chunk of the planet surface.
@@ -51,6 +55,8 @@ pub struct ChunkView {
     pub ore: Vec<u8>,
     /// Coal seam richness, `0` = none. Coal extractors must sit on a seam.
     pub coal: Vec<u8>,
+    /// Oil reservoir richness, `0` = none. Oil wells must sit on a reservoir.
+    pub oil: Vec<u8>,
 }
 
 /// Everything the client needs before the first tick.

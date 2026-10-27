@@ -39,7 +39,11 @@ const SEED: u32 = 0x5EED_1234;
 ///   (and with it the landing pad, road grid and guaranteed bodies baked into
 ///   the sampled home chunk) moved on seeds whose old home was an island or a
 ///   bare coast. Away from the home overlay the planet itself is unchanged.
-const FROZEN_DIGEST: u32 = 0xBAEE_0655;
+/// - `0x4546_D7DC` -- 2026-10-27, regional oilfields landed. Oil has its own
+///   protocol plane; only oil-bearing terrain/decor cells change. Comparison
+///   with a2 found 62/64 sampled legacy chunks identical and zero non-oil
+///   differences in the other two after applying the same oil mask.
+const FROZEN_DIGEST: u32 = 0x4546_D7DC;
 
 /// splitmix64 finaliser; the same walk `crates/sim-cli`'s benchmark uses.
 const fn mix64(mut z: u64) -> u64 {
@@ -69,7 +73,9 @@ fn sample_chunks(home: (i32, i32)) -> Vec<(i32, i32)> {
     out
 }
 
-/// Every byte the generator publishes for one chunk.
+/// Every legacy byte the generator publishes. Oil is a separate protocol plane
+/// checked by the tile/chunk and cache-eviction tests, not folded into this
+/// pre-oil digest format.
 fn planes(chunk: &Chunk) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(CHUNK_TILES * 5 + 8);
     bytes.extend_from_slice(&chunk.cx.to_le_bytes());
@@ -84,9 +90,10 @@ fn planes(chunk: &Chunk) -> Vec<u8> {
 #[test]
 fn sampled_chunks_match_the_frozen_digest() {
     let home = mapgen::find_home(SEED);
+    let oil_home = mapgen::oil_site(SEED, home);
     let mut bytes = Vec::new();
     for (cx, cy) in sample_chunks(home) {
-        bytes.extend_from_slice(&planes(&mapgen::chunk(SEED, home, cx, cy)));
+        bytes.extend_from_slice(&planes(&mapgen::chunk(SEED, home, oil_home, cx, cy)));
     }
     let digest = oc_sim::fnv1a(&bytes);
     assert_eq!(
@@ -99,11 +106,12 @@ fn sampled_chunks_match_the_frozen_digest() {
 #[test]
 fn the_chunk_path_and_the_one_tile_path_agree() {
     let home = mapgen::find_home(SEED);
+    let oil_home = mapgen::oil_site(SEED, home);
     for (cx, cy) in sample_chunks(home).into_iter().take(8) {
-        let chunk = mapgen::chunk(SEED, home, cx, cy);
+        let chunk = mapgen::chunk(SEED, home, oil_home, cx, cy);
         for ly in 0..32 {
             for lx in 0..32 {
-                let tile = mapgen::tile(SEED, home, cx * 32 + lx, cy * 32 + ly);
+                let tile = mapgen::tile(SEED, home, oil_home, cx * 32 + lx, cy * 32 + ly);
                 let i = Chunk::index(lx, ly);
                 let at = format!("chunk ({cx},{cy}) tile ({lx},{ly})");
                 assert_eq!(chunk.material[i], tile.material, "material at {at}");
@@ -111,6 +119,7 @@ fn the_chunk_path_and_the_one_tile_path_agree() {
                 assert_eq!(chunk.decor[i], tile.decor, "decor at {at}");
                 assert_eq!(chunk.deposit[i], tile.deposit, "ore at {at}");
                 assert_eq!(chunk.coal[i], tile.coal, "coal at {at}");
+                assert_eq!(chunk.oil[i], tile.oil, "oil at {at}");
             }
         }
     }

@@ -82,6 +82,14 @@ impl World {
             placement_ok = false;
             reason = REASON_LINK;
         }
+        // Oil wells require a real reservoir; they never run on ore or coal.
+        if placement_ok
+            && kind == buildings::B_OIL_WELL
+            && self.map.footprint_oil(tx, ty, size) <= 0
+        {
+            placement_ok = false;
+            reason = REASON_LINK;
+        }
         q.placement_ok = placement_ok;
         // Tech and era gating are unconditional: sandbox modes may make things
         // instant or free, but they never bypass the research tree or the era.
@@ -132,6 +140,7 @@ impl World {
             charge: 0,
             flags: 0,
             aux: 0,
+            production_milli: 0,
         });
         id
     }
@@ -227,6 +236,7 @@ impl World {
                     SiteRule::Barren => {
                         self.map.footprint_deposit(tx, ty, size) == 0
                             && self.map.footprint_coal(tx, ty, size) == 0
+                            && self.map.footprint_oil(tx, ty, size) == 0
                     }
                 };
                 if !fits {

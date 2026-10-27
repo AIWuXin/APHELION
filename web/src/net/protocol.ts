@@ -10,5 +10,6 @@
  *  - 2: the planet went chunked -- `MapView` carries `{seed, width, height,
  *    chunk_size, start_tx, start_ty}` instead of a tile array, and terrain
  *    arrives per 32x32 `ChunkView` through `oc_chunk`.
+ *  - 3: crude oil, reservoir streaming, oilfield guidance and freight state.
  */
-export const CLIENT_PROTOCOL = 2;
+export const CLIENT_PROTOCOL = 3;

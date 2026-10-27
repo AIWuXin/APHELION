@@ -134,6 +134,7 @@ export class App {
             snapshot: () => this.store.current,
             buildings: boot.catalog.buildings,
             anchor: { tx: map.start_tx, ty: map.start_ty },
+            oilAnchor: { tx: map.oil_tx, ty: map.oil_ty },
           });
         }
       },

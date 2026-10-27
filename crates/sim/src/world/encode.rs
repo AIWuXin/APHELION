@@ -61,6 +61,8 @@ impl World {
                 energy_in: self.energy_in,
                 coal: self.res.coal,
                 coal_rate: self.coal_rate,
+                oil: self.res.oil,
+                oil_rate: self.oil_rate,
             },
             orbital: Orbital {
                 capacity: self.orbital_capacity(),
@@ -112,6 +114,7 @@ impl World {
                     charge: b.charge,
                     flags: b.flags,
                     aux: b.aux.min(u32::from(u16::MAX)) as u16,
+                    production_milli: b.production_milli.min(u32::from(u16::MAX)) as u16,
                 })
                 .collect(),
             units: self
@@ -129,6 +132,8 @@ impl World {
                     facing: u.facing,
                     owner: u.owner,
                     target: u.target,
+                    home: u.home,
+                    cargo: u.cargo,
                 })
                 .collect(),
             effects: self
@@ -202,6 +207,8 @@ impl World {
                 chunk_size: oc_iso::torus::CHUNK as u16,
                 start_tx: self.map.start.0 as u16,
                 start_ty: self.map.start.1 as u16,
+                oil_tx: self.map.oil_home.0 as u16,
+                oil_ty: self.map.oil_home.1 as u16,
             },
         };
         self.boot_buf = postcard::to_allocvec(&boot).unwrap_or_default();

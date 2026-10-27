@@ -41,10 +41,15 @@ progress: number,
  */
 charge: number, 
 /**
- * Bit flags: 1 powered, 2 on a deposit, 4 damaged, 8 selectable.
+ * Bit flags: 1 powered, 2 on a deposit, 4 damaged, 8 selectable,
+ * 16 first freight train already spawned (persistent ownership state).
  */
 flags: number, 
 /**
- * Free-form auxiliary value (queue length, target id, ...).
+ * Free-form auxiliary value (queue length, target id, oil stock, ...).
  */
-aux: number, };
+aux: number, 
+/**
+ * Fractional local production, used by oil wells and included in hashes.
+ */
+production_milli: number, };

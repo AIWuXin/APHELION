@@ -89,6 +89,7 @@ pub fn update(world: &mut World, dt_ms: u32) {
             target: 0,
             cooldown: 0,
             home,
+            cargo: 0,
         });
         world.event(
             EVENT_PRODUCED,
@@ -119,7 +120,7 @@ fn release_orphans(world: &mut World) {
         .collect();
     let mut doomed: Vec<usize> = Vec::new();
     for (i, u) in world.units.iter().enumerate() {
-        if u.home != 0 && !hangars.contains(&u.home) {
+        if u.kind == units::U_INTERCEPTOR && u.home != 0 && !hangars.contains(&u.home) {
             doomed.push(i);
         }
     }

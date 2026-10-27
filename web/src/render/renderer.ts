@@ -33,6 +33,7 @@ import type { Camera } from './iso';
 import { deltaSpan } from './torus';
 import { line } from './primitives';
 import { drawAirShadows, drawInteraction, drawRouteTraces } from './overlays';
+import { drawFreightLines } from './freight';
 import { BuildingRenderer } from './sprites/building-renderer';
 import { rasterScale } from './sprites/sprite-cache';
 import { SHIP_PAINTERS, UNIT_PAINTERS } from './sprites/units';
@@ -165,6 +166,7 @@ export class Renderer {
 
     // Ground-plane guides go under every object so structures occlude them.
     drawRouteTraces(ctx, frame);
+    drawFreightLines(ctx, frame);
 
     const ground: Drawable[] = [];
     const air: Drawable[] = [];

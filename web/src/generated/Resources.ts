@@ -43,4 +43,12 @@ coal: number,
 /**
  * Coal per minute.
  */
-coal_rate: number, };
+coal_rate: number, 
+/**
+ * Crude oil delivered to the colony (T2 chemical feedstock).
+ */
+oil: number, 
+/**
+ * Delivered crude oil per minute.
+ */
+oil_rate: number, };

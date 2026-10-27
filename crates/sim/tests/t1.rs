@@ -163,6 +163,7 @@ fn era_blocks_building_tiers_above_it() {
     let mut world = new_world();
     world.speed = 0;
     world.res.alloy = 10_000;
+    world.res.fuel = 100; // Explicit test stock: era gating is independent of fuel.
     let (tx, ty) = tile_of(&world, T_ROAD);
     assert_eq!(world.era, 1, "a new campaign starts in the T1 era");
 

@@ -45,4 +45,4 @@
 
 ## 状态
 
-代码与本文档尚未提交或推送，未创建新 tag/Release；本地双 exe 只是当前工作区的验收包，沿用尚未提升的 `0.1.0a2` 产品号。原有未跟踪文件 `dungeon-village-prompt.md` 未触碰。
+T2 功能提交 `8ab5d78` 已推送 `origin/main`，本档案在集成后同步提交状态。未创建新 tag/Release；本地双 exe 只是工作区验收包，沿用尚未提升的 `0.1.0a2` 产品号。原有未跟踪文件 `dungeon-village-prompt.md` 未触碰。
